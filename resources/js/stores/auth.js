@@ -1,0 +1,124 @@
+import { defineStore } from 'pinia'
+import axios from 'axios'
+
+export const useAuthStore = defineStore('auth', {
+  state: () => ({
+    user: null,
+    profile: null,
+    token: localStorage.getItem('auth_token') || null,
+    loading: false
+  }),
+
+  getters: {
+    isAuthenticated: (state) => !!state.token,
+    isAdmin: (state) => state.user?.role === 'admin',
+    isGuru: (state) => state.user?.role === 'guru',
+    isWaliKelas: (state) => state.user?.role === 'wali_kelas',
+    isKepalaSekolah: (state) => state.user?.role === 'kepala_sekolah',
+    isSiswa: (state) => state.user?.role === 'siswa'
+  },
+
+  actions: {
+    async login(credentials) {
+      this.loading = true
+      try {
+        const response = await axios.post('/login', credentials)
+        const { user, profile, token, role } = response.data
+
+        this.user = user
+        this.profile = profile
+        this.token = token
+        
+        localStorage.setItem('auth_token', token)
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+
+        return { user, profile, role }
+      } catch (error) {
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async register(userData) {
+      this.loading = true
+      try {
+        const response = await axios.post('/register', userData)
+        const { user, token } = response.data
+
+        this.user = user
+        this.token = token
+        
+        localStorage.setItem('auth_token', token)
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+
+        return user
+      } catch (error) {
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async logout() {
+      try {
+        if (this.token) {
+          await axios.post('/logout')
+        }
+      } catch (error) {
+        console.error('Logout error:', error)
+      } finally {
+        this.user = null
+        this.profile = null
+        this.token = null
+        
+        localStorage.removeItem('auth_token')
+        delete axios.defaults.headers.common['Authorization']
+      }
+    },
+
+    async getUser() {
+      if (!this.token) return
+
+      try {
+        const response = await axios.get('/user')
+        const { user, profile } = response.data
+        
+        this.user = user
+        this.profile = profile
+        
+        return user
+      } catch (error) {
+        console.error('Get user error:', error)
+        this.logout()
+        throw error
+      }
+    },
+
+    async updatePassword(passwords) {
+      try {
+        await axios.put('/update-password', passwords)
+      } catch (error) {
+        throw error
+      }
+    },
+
+    // Redirect based on role
+    getDefaultRoute() {
+      switch (this.user?.role) {
+        case 'admin':
+          return '/admin'
+        case 'guru':
+          return '/guru'
+        case 'wali_kelas':
+          return '/wali-kelas'
+        case 'kepala_sekolah':
+          return '/kepala-sekolah'
+        case 'siswa':
+          return '/siswa'
+        default:
+          return '/'
+      }
+    }
+  }
+})

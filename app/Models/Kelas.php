@@ -1,0 +1,118 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Kelas Model
+ * 
+ * Represents classes in the school
+ */
+class Kelas extends Model
+{
+    use HasFactory;
+
+    protected $table = 'kelas';
+
+    protected $fillable = [
+        'nama_kelas',
+        'tingkat',
+        'jurusan_id',
+        'wali_kelas_id',
+        'kapasitas',
+    ];
+
+    protected $casts = [
+        'kapasitas' => 'integer',
+    ];
+
+    /**
+     * Get the jurusan that owns the kelas.
+     */
+    public function jurusan()
+    {
+        return $this->belongsTo(Jurusan::class);
+    }
+
+    /**
+     * Get the wali kelas (homeroom teacher).
+     */
+    public function waliKelas()
+    {
+        return $this->belongsTo(User::class, 'wali_kelas_id');
+    }
+
+    /**
+     * Get the siswa in this kelas.
+     */
+    public function siswa()
+    {
+        return $this->hasMany(Siswa::class);
+    }
+
+    /**
+     * Get the jadwal pelajaran for this kelas.
+     */
+    public function jadwalPelajaran()
+    {
+        return $this->hasMany(JadwalPelajaran::class);
+    }
+
+    /**
+     * Get the rapor for this kelas.
+     */
+    public function rapor()
+    {
+        return $this->hasMany(Rapor::class);
+    }
+
+    /**
+     * Get active siswa in this kelas.
+     */
+    public function activeSiswa()
+    {
+        return $this->siswa()->where('status', 'aktif');
+    }
+
+    /**
+     * Get the count of active siswa.
+     *
+     * @return int
+     */
+    public function getActiveSiswaCountAttribute()
+    {
+        return $this->activeSiswa()->count();
+    }
+
+    /**
+     * Check if kelas is full.
+     *
+     * @return bool
+     */
+    public function getIsFullAttribute()
+    {
+        return $this->activeSiswa()->count() >= $this->kapasitas;
+    }
+
+    /**
+     * Get the available capacity.
+     *
+     * @return int
+     */
+    public function getAvailableCapacityAttribute()
+    {
+        return $this->kapasitas - $this->activeSiswa()->count();
+    }
+
+    /**
+     * Get the full name of the kelas.
+     *
+     * @return string
+     */
+    public function getFullNameAttribute()
+    {
+        return "{$this->nama_kelas} - {$this->jurusan->nama_jurusan}";
+    }
+}

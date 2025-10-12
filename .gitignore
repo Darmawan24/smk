@@ -1,0 +1,93 @@
+# ============================================
+# Laravel + Vue.js + Tailwind .gitignore
+# ============================================
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+
+# --- IDE / Editor ---
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# --- Composer ---
+/vendor/
+composer.lock
+
+# --- Node / NPM ---
+/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# --- Laravel ---
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+/storage/*
+!/storage/app/.gitignore
+!/storage/framework/.gitignore
+!/storage/logs/.gitignore
+
+.env
+.env.backup
+.env.local
+.env.production
+.env.development
+.env.testing
+
+# --- Laravel Mix / Vite ---
+/public/hot
+/public/storage
+/public/build
+/public/mix-manifest.json
+/public/assets/*
+/resources/js/*.js.map
+/resources/css/*.css.map
+
+# --- Logs & Cache ---
+/storage/*.key
+*.log
+*.cache
+*.tmp
+
+# --- Tests & Coverage ---
+/coverage/
+.phpunit.result.cache
+
+# --- Laravel Nova / Telescope / Horizon (optional) ---
+/nova-components/
+/telescope/
+/horizon/
+
+# --- Tailwind / PostCSS ---
+/resources/css/*.css.map
+/postcss.config.js
+/tailwind.config.js
+
+# --- Other temporary files ---
+/*.pid
+*.seed
+*.bak
+*.swp
+*.swo
+*.orig
+
+# --- Build outputs ---
+/dist/
+/build/
+/resources/dist/
+/resources/js/dist/
+/resources/css/dist/
+
+# --- Optional: Ignore Laravel Sail Docker files ---
+docker-compose.override.yml
+sail
+
+# --- Optional: Ignore compiled assets from Vite ---
+vite.config.js.timestamp-*
