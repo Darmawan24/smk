@@ -380,17 +380,30 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { useAuthStore } from '../../stores/auth'
 import { useToast } from 'vue-toastification'
 
+const authStore = useAuthStore()
 const toast = useToast()
 const stats = ref({})
 const loading = ref(true)
 
 const fetchStats = async () => {
+  // Check if user is still authenticated before fetching
+  if (!authStore.isAuthenticated) {
+    loading.value = false
+    return
+  }
+
   try {
     const response = await axios.get('/dashboard/admin')
     stats.value = response.data
   } catch (error) {
+    // Don't show error if user is not authenticated (likely logged out)
+    if (error.response?.status === 401 || !authStore.isAuthenticated) {
+      // User is logged out, don't show error
+      return
+    }
     console.error('Error fetching stats:', error)
     toast.error('Gagal mengambil data statistik')
   } finally {

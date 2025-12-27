@@ -10,6 +10,7 @@ use App\Models\Guru;
 use App\Models\TahunAjaran;
 use App\Models\DimensiP5;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * LookupController
@@ -45,12 +46,26 @@ class LookupController extends Controller
 
     /**
      * Get all mata pelajaran for dropdown.
+     * If user is guru, only return mata pelajaran assigned to that guru.
+     * If kelas_id is provided, filter by kelas_id to avoid duplicates.
      */
-    public function mataPelajaran()
+    public function mataPelajaran(Request $request)
     {
-        $mataPelajaran = MataPelajaran::where('is_active', true)
-            ->select('id', 'kode_mapel', 'nama_mapel', 'kelompok')
-            ->get();
+        $query = MataPelajaran::where('is_active', true)
+            ->select('id', 'kode_mapel', 'nama_mapel', 'kelompok', 'kelas_id');
+
+        // If user is guru, filter by guru_id
+        $user = Auth::user();
+        if ($user && $user->role === 'guru' && $user->guru) {
+            $query->where('guru_id', $user->guru->id);
+        }
+
+        // If kelas_id is provided, filter by kelas_id
+        if ($request->has('kelas_id') && $request->kelas_id) {
+            $query->where('kelas_id', $request->kelas_id);
+        }
+
+        $mataPelajaran = $query->get();
         return response()->json($mataPelajaran);
     }
 

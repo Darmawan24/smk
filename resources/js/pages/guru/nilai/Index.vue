@@ -24,7 +24,7 @@
             :options="kelasOptions"
             option-value="id"
             option-label="nama_kelas"
-            @update:model-value="loadNilai"
+            @update:model-value="onKelasChange"
           />
           <FormField
             v-model="selectedMapel"
@@ -241,12 +241,36 @@ const fetchKelas = async () => {
 }
 
 const fetchMapel = async () => {
+  if (!selectedKelas.value) {
+    mapelOptions.value = []
+    return
+  }
+  
   try {
-    const response = await axios.get('/admin/mata-pelajaran')
-    mapelOptions.value = response.data.data
+    const params = new URLSearchParams()
+    params.append('kelas_id', selectedKelas.value)
+    
+    const response = await axios.get(`/lookup/mata-pelajaran?${params.toString()}`)
+    mapelOptions.value = response.data
+    // Reset selected mapel when kelas changes
+    if (selectedMapel.value) {
+      const mapelExists = mapelOptions.value.find(m => m.id == selectedMapel.value)
+      if (!mapelExists) {
+        selectedMapel.value = ''
+      }
+    }
   } catch (error) {
     console.error('Failed to fetch mata pelajaran:', error)
   }
+}
+
+const onKelasChange = () => {
+  // Reset selected mapel when kelas changes
+  selectedMapel.value = ''
+  // Fetch mapel for the selected kelas
+  fetchMapel()
+  // Clear nilai data
+  nilaiData.value = []
 }
 
 const loadNilai = async () => {
@@ -341,6 +365,5 @@ const batchUpdate = async () => {
 // Lifecycle
 onMounted(() => {
   fetchKelas()
-  fetchMapel()
 })
 </script>

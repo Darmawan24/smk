@@ -225,12 +225,23 @@ const recentGrades = ref([])
 const loading = ref(true)
 
 const fetchDashboardData = async () => {
+  // Check if user is still authenticated before fetching
+  if (!authStore.isAuthenticated) {
+    loading.value = false
+    return
+  }
+
   try {
     const response = await axios.get('/dashboard/siswa')
     profile.value = response.data.profile || {}
     stats.value = response.data.stats || {}
     recentGrades.value = response.data.recent_grades || []
   } catch (error) {
+    // Don't show error if user is not authenticated (likely logged out)
+    if (error.response?.status === 401 || !authStore.isAuthenticated) {
+      // User is logged out, don't show error
+      return
+    }
     console.error('Error fetching dashboard data:', error)
     toast.error('Gagal mengambil data dashboard')
   } finally {

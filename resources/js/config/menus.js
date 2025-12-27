@@ -39,7 +39,7 @@ export const menuConfig = {
         { label: 'Capaian Pembelajaran', to: '/guru/capaian-pembelajaran', icon: 'target' },
         { label: 'Kelola Nilai Sumatif', to: '/guru/nilai', icon: 'clipboard-check' },
         { label: 'Nilai Ekstrakurikuler', to: '/guru/nilai-ekstrakurikuler', icon: 'star' },
-        { label: 'Nilai P5', to: '/guru/nilai-p5', icon: 'lightbulb' }
+        { label: 'Nilai P5', to: '/guru/p5', icon: 'lightbulb' }
       ]
     }
   ],
@@ -51,8 +51,7 @@ export const menuConfig = {
       items: [
         { label: 'Capaian Pembelajaran', to: '/wali-kelas/capaian-pembelajaran', icon: 'target' },
         { label: 'Kelola Nilai Sumatif', to: '/wali-kelas/nilai-sumatif', icon: 'clipboard-check' },
-        { label: 'Nilai Ekstrakurikuler', to: '/wali-kelas/nilai-ekstrakurikuler', icon: 'star' },
-        { label: 'Nilai P5', to: '/wali-kelas/nilai-p5', icon: 'lightbulb' }
+        { label: 'Nilai Ekstrakurikuler', to: '/wali-kelas/nilai-ekstrakurikuler', icon: 'star' }
       ]
     },
     {

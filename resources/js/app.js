@@ -25,6 +25,9 @@ import JurusanIndex from './pages/admin/jurusan/Index.vue'
 import MataPelajaranIndex from './pages/admin/mata-pelajaran/Index.vue'
 import EkstrakurikulerIndex from './pages/admin/ekstrakurikuler/Index.vue'
 import PklIndex from './pages/admin/pkl/Index.vue'
+import UkkIndex from './pages/admin/ukk/Index.vue'
+import AdminP5Index from './pages/admin/p5/Index.vue'
+import CetakRaporHasilBelajarIndex from './pages/admin/cetak-rapor/hasil-belajar/Index.vue'
 import TahunAjaranIndex from './pages/admin/tahun-ajaran/Index.vue'
 import UserIndex from './pages/admin/user/Index.vue'
 import WaliKelasIndex from './pages/admin/wali-kelas/Index.vue'
@@ -33,12 +36,15 @@ import WaliKelasIndex from './pages/admin/wali-kelas/Index.vue'
 import GuruDashboard from './pages/guru/Dashboard.vue'
 import NilaiIndex from './pages/guru/nilai/Index.vue'
 import CapaianPembelajaranIndex from './pages/guru/capaian-pembelajaran/Index.vue'
+import NilaiEkstrakurikulerIndex from './pages/guru/nilai-ekstrakurikuler/Index.vue'
+import P5Index from './pages/guru/p5/Index.vue'
 
 // Wali Kelas pages
 import WaliKelasDashboard from './pages/wali-kelas/Dashboard.vue'
 import NilaiKelasIndex from './pages/wali-kelas/nilai-kelas/Index.vue'
 import KehadiranIndex from './pages/wali-kelas/kehadiran/Index.vue'
 import RaporIndex from './pages/wali-kelas/rapor/Index.vue'
+import CekPenilaianIndex from './pages/wali-kelas/cek-penilaian/Index.vue'
 
 // Kepala Sekolah pages
 import KepalaSekolahDashboard from './pages/kepala-sekolah/Dashboard.vue'
@@ -62,18 +68,6 @@ axios.interceptors.request.use((config) => {
   }
   return config
 })
-
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      const authStore = useAuthStore()
-      authStore.logout()
-      router.push('/login')
-    }
-    return Promise.reject(error)
-  }
-)
 
 // Routes
 const routes = [
@@ -163,6 +157,21 @@ const routes = [
         component: PklIndex
       },
       {
+        path: 'ukk',
+        name: 'admin.ukk.index',
+        component: UkkIndex
+      },
+      {
+        path: 'p5',
+        name: 'admin.p5.index',
+        component: AdminP5Index
+      },
+      {
+        path: 'cetak-rapor/hasil-belajar',
+        name: 'admin.cetak-rapor.hasil-belajar',
+        component: CetakRaporHasilBelajarIndex
+      },
+      {
         path: 'tahun-ajaran',
         name: 'admin.tahun-ajaran.index',
         component: TahunAjaranIndex
@@ -194,6 +203,16 @@ const routes = [
         path: 'capaian-pembelajaran',
         name: 'guru.capaian-pembelajaran.index',
         component: CapaianPembelajaranIndex
+      },
+      {
+        path: 'nilai-ekstrakurikuler',
+        name: 'guru.nilai-ekstrakurikuler.index',
+        component: NilaiEkstrakurikulerIndex
+      },
+      {
+        path: 'p5',
+        name: 'guru.p5.index',
+        component: P5Index
       }
     ]
   },
@@ -222,6 +241,11 @@ const routes = [
         path: 'rapor',
         name: 'wali-kelas.rapor.index',
         component: RaporIndex
+      },
+      {
+        path: 'cek-penilaian',
+        name: 'wali-kelas.cek-penilaian.index',
+        component: CekPenilaianIndex
       }
     ]
   },
@@ -265,6 +289,16 @@ const routes = [
         component: RaporSiswaIndex
       },
       {
+        path: 'rapor/belajar',
+        name: 'siswa.rapor.belajar',
+        component: RaporSiswaIndex
+      },
+      {
+        path: 'rapor/p5',
+        name: 'siswa.rapor.p5',
+        component: RaporSiswaIndex
+      },
+      {
         path: 'nilai',
         name: 'siswa.nilai.index',
         component: NilaiSiswaIndex
@@ -278,26 +312,116 @@ const router = createRouter({
   routes
 })
 
+// Configure axios response interceptor after router is created
+let routerInstance = router
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const authStore = useAuthStore()
+      authStore.logout()
+      // Use router.push with error handling to avoid timing issues
+      if (routerInstance) {
+        routerInstance.push('/login').catch(() => {
+          // Fallback to window.location if router push fails
+          window.location.href = '/login'
+        })
+      } else {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
 // Route guards
 router.beforeEach(async (to, from, next) => {
-  const authStore = useAuthStore()
-  
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-    return
+  try {
+    const authStore = useAuthStore()
+    
+    // Validate route component exists
+    if (to.matched.length === 0) {
+      console.warn('Route not found:', to.path)
+      // If authenticated, redirect to role dashboard, otherwise to login
+      if (authStore.isAuthenticated && authStore.user) {
+        next(authStore.getDefaultRoute())
+      } else {
+        next('/login')
+      }
+      return
+    }
+    
+    // If route requires auth but user is not authenticated
+    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+      next('/login')
+      return
+    }
+    
+    // If user is authenticated but trying to access guest route
+    if (to.meta.guest && authStore.isAuthenticated) {
+      // Redirect to role-specific dashboard
+      if (authStore.user) {
+        next(authStore.getDefaultRoute())
+      } else {
+        next('/')
+      }
+      return
+    }
+    
+    // If route requires specific role, ensure user is loaded first
+    if (to.meta.role) {
+      // Wait if user is currently being loaded (e.g., from App.vue onMounted)
+      if (authStore.userLoading) {
+        while (authStore.userLoading) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
+      }
+      
+      // If user is not loaded yet but has token, load user first
+      if (authStore.isAuthenticated && !authStore.user) {
+        try {
+          await authStore.getUser()
+        } catch (error) {
+          console.error('Failed to load user:', error)
+          next('/login')
+          return
+        }
+      }
+      
+      // Check if user role matches required role
+      if (authStore.user?.role !== to.meta.role) {
+        // Redirect to role-specific dashboard instead of '/'
+        if (authStore.user) {
+          next(authStore.getDefaultRoute())
+        } else {
+          next('/login')
+        }
+        return
+      }
+      
+      // Role matches, allow navigation to the requested path (stay on current path)
+    }
+    
+    next()
+  } catch (error) {
+    console.error('Router guard error:', error)
+    const authStore = useAuthStore()
+    // On error, redirect to appropriate page based on auth state
+    if (authStore.isAuthenticated && authStore.user) {
+      next(authStore.getDefaultRoute())
+    } else {
+      next('/login')
+    }
   }
-  
-  if (to.meta.guest && authStore.isAuthenticated) {
-    next('/')
-    return
+})
+
+// Handle router errors
+router.onError((error) => {
+  console.error('Router error:', error)
+  // Prevent infinite loops
+  if (error.message && !error.message.includes('NavigationDuplicated')) {
+    console.error('Navigation error:', error)
   }
-  
-  if (to.meta.role && authStore.user?.role !== to.meta.role) {
-    next('/')
-    return
-  }
-  
-  next()
 })
 
 // Create app

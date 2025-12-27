@@ -6,7 +6,8 @@ export const useAuthStore = defineStore('auth', {
     user: null,
     profile: null,
     token: localStorage.getItem('auth_token') || null,
-    loading: false
+    loading: false,
+    userLoading: false
   }),
 
   getters: {
@@ -71,6 +72,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = null
         this.profile = null
         this.token = null
+        this.userLoading = false
         
         localStorage.removeItem('auth_token')
         delete axios.defaults.headers.common['Authorization']
@@ -78,8 +80,18 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async getUser() {
-      if (!this.token) return
+      if (!this.token) return null
+      
+      // Prevent multiple simultaneous requests
+      if (this.userLoading) {
+        // Wait for existing request to complete
+        while (this.userLoading) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
+        return this.user
+      }
 
+      this.userLoading = true
       try {
         const response = await axios.get('/user')
         const { user, profile } = response.data
@@ -92,6 +104,8 @@ export const useAuthStore = defineStore('auth', {
         console.error('Get user error:', error)
         this.logout()
         throw error
+      } finally {
+        this.userLoading = false
       }
     },
 

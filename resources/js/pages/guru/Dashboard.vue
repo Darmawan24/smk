@@ -85,7 +85,7 @@
                 <div class="ml-5 w-0 flex-1">
                   <dl>
                     <dt class="text-sm font-medium text-gray-500 truncate">Jadwal Hari Ini</dt>
-                    <dd class="text-lg font-medium text-gray-900">{{ todaySchedule.length }} Pertemuan</dd>
+                    <dd class="text-lg font-medium text-gray-900">{{ todaySchedule?.length || 0 }} Pertemuan</dd>
                   </dl>
                 </div>
               </div>
@@ -295,18 +295,37 @@ const stats = ref({})
 const classes = ref([])
 const recentGrades = ref([])
 const cpProgress = ref([])
+const todaySchedule = ref([])
 const loading = ref(true)
 
 const fetchDashboardData = async () => {
+  // Check if user is still authenticated before fetching
+  if (!authStore.isAuthenticated) {
+    loading.value = false
+    return
+  }
+
   try {
     const response = await axios.get('/dashboard/guru')
     stats.value = response.data.stats || {}
     classes.value = response.data.classes || []
     recentGrades.value = response.data.recent_grades || []
     cpProgress.value = response.data.cp_progress || []
+    todaySchedule.value = response.data.today_schedule || []
   } catch (error) {
+    // Don't show error if user is not authenticated (likely logged out)
+    if (error.response?.status === 401 || !authStore.isAuthenticated) {
+      // User is logged out, don't show error
+      return
+    }
     console.error('Error fetching dashboard data:', error)
     toast.error('Gagal mengambil data dashboard')
+    // Set default values to prevent errors
+    stats.value = {}
+    classes.value = []
+    recentGrades.value = []
+    cpProgress.value = []
+    todaySchedule.value = []
   } finally {
     loading.value = false
   }

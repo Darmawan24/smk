@@ -16,8 +16,10 @@ use App\Http\Controllers\Api\Admin\EkstrakurikulerController;
 use App\Http\Controllers\Api\Admin\PklController;
 use App\Http\Controllers\Api\Guru\NilaiController as GuruNilaiController;
 use App\Http\Controllers\Api\Guru\CapaianPembelajaranController;
+use App\Http\Controllers\Api\Guru\TujuanPembelajaranController;
 use App\Http\Controllers\Api\Guru\P5Controller as GuruP5Controller;
 use App\Http\Controllers\Api\Guru\PklController as GuruPklController;
+use App\Http\Controllers\Api\Guru\NilaiEkstrakurikulerController;
 use App\Http\Controllers\Api\WaliKelas\NilaiKelasController;
 use App\Http\Controllers\Api\WaliKelas\KehadiranController;
 use App\Http\Controllers\Api\WaliKelas\CatatanAkademikController;
@@ -26,6 +28,10 @@ use App\Http\Controllers\Api\KepalaSekolah\RaporApprovalController;
 use App\Http\Controllers\Api\KepalaSekolah\RekapController;
 use App\Http\Controllers\Api\Siswa\RaporSiswaController;
 use App\Http\Controllers\Api\Siswa\NilaiSiswaController;
+use App\Http\Controllers\Api\LookupController;
+use App\Http\Controllers\Api\Admin\UkkController;
+use App\Http\Controllers\Api\Admin\P5Controller as AdminP5Controller;
+use App\Http\Controllers\Api\Admin\CetakRaporController;
 
 /*
 |--------------------------------------------------------------------------
@@ -86,6 +92,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('ekstrakurikuler/{ekstrakurikuler}/assign-pembina', [EkstrakurikulerController::class, 'assignPembina']);
 
         Route::apiResource('pkl', PklController::class);
+        Route::apiResource('ukk', UkkController::class);
+        Route::get('ukk/jurusan/{jurusan}', [UkkController::class, 'byJurusan']);
+        Route::apiResource('p5', AdminP5Controller::class);
+
+        // Cetak Rapor
+        Route::get('cetak-rapor/hasil-belajar', [CetakRaporController::class, 'hasilBelajar']);
+        Route::get('cetak-rapor/hasil-belajar/{rapor}', [CetakRaporController::class, 'detailHasilBelajar']);
+        Route::get('cetak-rapor/hasil-belajar/{rapor}/preview', [CetakRaporController::class, 'previewHasilBelajar']);
+        Route::get('cetak-rapor/hasil-belajar/{rapor}/download', [CetakRaporController::class, 'downloadHasilBelajar']);
     });
 
     // Guru routes
@@ -176,9 +191,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('nilai-ekstrakurikuler', [NilaiEkstrakurikulerController::class, 'store']);
         Route::put('nilai-ekstrakurikuler/{nilaiEkstrakurikuler}', [NilaiEkstrakurikulerController::class, 'update']);
 
-        // UKK
-        Route::apiResource('ukk', UkkController::class);
-        Route::get('ukk/jurusan/{jurusan}', [UkkController::class, 'byJurusan']);
+        // UKK - TODO: Create UkkController
+        // Route::apiResource('ukk', UkkController::class);
+        // Route::get('ukk/jurusan/{jurusan}', [UkkController::class, 'byJurusan']);
     });
 
     // Common lookup endpoints
