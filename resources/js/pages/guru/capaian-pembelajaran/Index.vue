@@ -83,7 +83,7 @@
 
         <!-- CP Cards -->
         <div v-else class="space-y-4">
-          <div 
+              <div 
             v-for="cp in filteredCPList" 
             :key="cp.id" 
             class="bg-white shadow rounded-lg overflow-hidden"
@@ -257,7 +257,7 @@
                   option-value="id"
                   option-label="nama_mapel"
                   :error="errors.mata_pelajaran_id"
-                />
+          />
               </div>
             </div>
             <div class="flex items-center gap-4">

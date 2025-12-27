@@ -21,6 +21,8 @@ class Nilai extends Model
         'mata_pelajaran_id',
         'tahun_ajaran_id',
         'guru_id',
+        'capaian_pembelajaran_id',
+        'semester',
         'nilai_sumatif_1',
         'nilai_sumatif_2',
         'nilai_sumatif_3',
@@ -76,6 +78,14 @@ class Nilai extends Model
     public function guru()
     {
         return $this->belongsTo(Guru::class);
+    }
+
+    /**
+     * Get the capaian pembelajaran.
+     */
+    public function capaianPembelajaran()
+    {
+        return $this->belongsTo(CapaianPembelajaran::class);
     }
 
     /**

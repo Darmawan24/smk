@@ -47,26 +47,23 @@ class NilaiController extends Controller
 
         $siswa = $kelas->siswa()->where('status', 'aktif')->get();
 
-        $nilai = Nilai::where('mata_pelajaran_id', $mataPelajaran->id)
+        $query = Nilai::where('mata_pelajaran_id', $mataPelajaran->id)
                      ->where('tahun_ajaran_id', $tahunAjaranId)
                      ->where('guru_id', $guru->id)
-                     ->whereIn('siswa_id', $siswa->pluck('id'))
-                     ->with(['siswa.user', 'mataPelajaran'])
-                     ->get();
+                     ->whereIn('siswa_id', $siswa->pluck('id'));
 
-        // Create nilai for siswa that don't have one yet
-        $siswaWithoutNilai = $siswa->filter(function ($s) use ($nilai) {
-            return !$nilai->contains('siswa_id', $s->id);
-        });
-
-        foreach ($siswaWithoutNilai as $s) {
-            $nilai->push(Nilai::create([
-                'siswa_id' => $s->id,
-                'mata_pelajaran_id' => $mataPelajaran->id,
-                'tahun_ajaran_id' => $tahunAjaranId,
-                'guru_id' => $guru->id,
-            ])->load(['siswa.user', 'mataPelajaran']));
+        // Filter by capaian_pembelajaran_id if provided
+        if ($request->has('capaian_pembelajaran_id') && $request->capaian_pembelajaran_id) {
+            $query->where('capaian_pembelajaran_id', $request->capaian_pembelajaran_id);
         }
+
+        // Filter by semester if provided
+        if ($request->has('semester') && $request->semester) {
+            $query->where('semester', $request->semester);
+        }
+
+        $nilai = $query->with(['siswa.user', 'mataPelajaran', 'capaianPembelajaran'])
+                     ->get();
 
         return response()->json([
             'kelas' => $kelas->load('jurusan'),
@@ -156,30 +153,179 @@ class NilaiController extends Controller
         }
 
         $request->validate([
-            'nilai_sumatif_1' => 'nullable|integer|min:0|max:100',
-            'nilai_sumatif_2' => 'nullable|integer|min:0|max:100',
-            'nilai_sumatif_3' => 'nullable|integer|min:0|max:100',
-            'nilai_sumatif_4' => 'nullable|integer|min:0|max:100',
-            'nilai_sumatif_5' => 'nullable|integer|min:0|max:100',
-            'nilai_uts' => 'nullable|integer|min:0|max:100',
-            'nilai_uas' => 'nullable|integer|min:0|max:100',
+            'nilai_sumatif_1' => 'nullable|numeric|min:0|max:100',
+            'nilai_akhir' => 'nullable|numeric|min:0|max:100',
             'deskripsi' => 'nullable|string|max:500',
         ]);
 
         $nilai->update($request->only([
             'nilai_sumatif_1',
-            'nilai_sumatif_2',
-            'nilai_sumatif_3',
-            'nilai_sumatif_4',
-            'nilai_sumatif_5',
-            'nilai_uts',
-            'nilai_uas',
+            'nilai_akhir',
             'deskripsi',
         ]));
 
         return response()->json([
             'message' => 'Nilai berhasil diperbarui',
-            'data' => $nilai->load(['siswa.user', 'mataPelajaran', 'tahunAjaran']),
+            'data' => $nilai->load(['siswa.user', 'mataPelajaran', 'tahunAjaran', 'capaianPembelajaran']),
+        ]);
+    }
+
+    /**
+     * Delete a specific nilai.
+     *
+     * @param  Nilai  $nilai
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function destroy(Nilai $nilai)
+    {
+        $user = Auth::user();
+        $guru = $user->guru;
+
+        // Verify that this nilai belongs to the current guru
+        if ($nilai->guru_id !== $guru->id) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses untuk menghapus nilai ini',
+            ], 403);
+        }
+
+        $nilai->delete();
+
+        return response()->json([
+            'message' => 'Nilai berhasil dihapus',
+        ]);
+    }
+
+    /**
+     * Store new nilai for capaian pembelajaran.
+     *
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'nilai' => 'required|array',
+            'nilai.*.siswa_id' => 'required|exists:siswa,id',
+            'nilai.*.mata_pelajaran_id' => 'required|exists:mata_pelajaran,id',
+            'nilai.*.tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
+            'nilai.*.guru_id' => 'required|exists:guru,id',
+            'nilai.*.capaian_pembelajaran_id' => 'required|exists:capaian_pembelajaran,id',
+            'nilai.*.semester' => 'required|string|in:1,2',
+            'nilai.*.nilai' => 'nullable|numeric|min:0|max:100',
+            'nilai.*.nilai_akhir' => 'required|numeric|min:0|max:100',
+            'nilai.*.deskripsi' => 'nullable|string|max:500',
+        ]);
+
+        $user = Auth::user();
+        $guru = $user->guru;
+
+        if (!$guru) {
+            return response()->json([
+                'message' => 'Guru tidak ditemukan',
+            ], 404);
+        }
+
+        // Verify that all nilai belong to the current guru
+        foreach ($request->nilai as $nilaiData) {
+            if ($nilaiData['guru_id'] != $guru->id) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki akses untuk menyimpan nilai ini',
+                ], 403);
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            $createdNilai = [];
+            
+            foreach ($request->nilai as $nilaiData) {
+                // Use updateOrCreate to handle existing records
+                $nilai = Nilai::updateOrCreate(
+                    [
+                        'siswa_id' => $nilaiData['siswa_id'],
+                        'mata_pelajaran_id' => $nilaiData['mata_pelajaran_id'],
+                        'tahun_ajaran_id' => $nilaiData['tahun_ajaran_id'],
+                        'capaian_pembelajaran_id' => $nilaiData['capaian_pembelajaran_id'],
+                        'semester' => $nilaiData['semester'],
+                    ],
+                    [
+                        'guru_id' => $nilaiData['guru_id'],
+                        'nilai_sumatif_1' => $nilaiData['nilai'] ?? null,
+                        'nilai_akhir' => $nilaiData['nilai_akhir'],
+                        'deskripsi' => $nilaiData['deskripsi'] ?? null,
+                    ]
+                );
+
+                $createdNilai[] = $nilai->load(['siswa.user', 'mataPelajaran', 'capaianPembelajaran']);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Nilai berhasil disimpan',
+                'data' => $createdNilai,
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Gagal menyimpan nilai',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get siswa for a specific kelas.
+     *
+     * @param  Kelas  $kelas
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getSiswa(Kelas $kelas)
+    {
+        $user = Auth::user();
+        $guru = $user->guru;
+
+        if (!$guru) {
+            return response()->json([
+                'message' => 'Guru tidak ditemukan',
+            ], 404);
+        }
+
+        // Verify that the kelas is associated with mata pelajaran taught by this guru
+        $mataPelajaran = MataPelajaran::where('guru_id', $guru->id)
+            ->whereHas('kelas', function ($query) use ($kelas) {
+                $query->where('kelas.id', $kelas->id);
+            })
+            ->first();
+
+        if (!$mataPelajaran) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses untuk kelas ini',
+            ], 403);
+        }
+
+        $siswa = $kelas->siswa()
+            ->where('status', 'aktif')
+            ->with('user')
+            ->get()
+            ->map(function ($s) {
+                return [
+                    'id' => $s->id,
+                    'nis' => $s->nis,
+                    'nama_lengkap' => $s->nama_lengkap,
+                    'user' => $s->user ? [
+                        'id' => $s->user->id,
+                        'email' => $s->user->email,
+                    ] : null,
+                ];
+            });
+
+        return response()->json([
+            'kelas' => [
+                'id' => $kelas->id,
+                'nama_kelas' => $kelas->nama_kelas,
+            ],
+            'siswa' => $siswa,
         ]);
     }
 }

@@ -119,8 +119,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:guru')->prefix('guru')->group(function () {
         // Nilai Management
         Route::get('nilai/kelas/{kelas}/mapel/{mataPelajaran}', [GuruNilaiController::class, 'index']);
+        Route::get('nilai/kelas/{kelas}/siswa', [GuruNilaiController::class, 'getSiswa']);
+        Route::post('nilai/store', [GuruNilaiController::class, 'store']);
         Route::post('nilai/batch-update', [GuruNilaiController::class, 'batchUpdate']);
         Route::put('nilai/{nilai}', [GuruNilaiController::class, 'update']);
+        Route::delete('nilai/{nilai}', [GuruNilaiController::class, 'destroy']);
 
         // Capaian & Tujuan Pembelajaran
         Route::get('capaian-pembelajaran/mapel/{mataPelajaran}', [CapaianPembelajaranController::class, 'byMapel']);
@@ -212,8 +215,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookup/kelas', [LookupController::class, 'kelas']);
     Route::get('lookup/jurusan', [LookupController::class, 'jurusan']);
     Route::get('lookup/mata-pelajaran', [LookupController::class, 'mataPelajaran']);
+    Route::get('lookup/kelas-by-mapel', [LookupController::class, 'kelasByMapel']);
     Route::get('lookup/guru', [LookupController::class, 'guru']);
     Route::get('lookup/tahun-ajaran', [LookupController::class, 'tahunAjaran']);
+    Route::get('lookup/tahun-ajaran-aktif', [LookupController::class, 'tahunAjaranAktif']);
     Route::get('lookup/dimensi-p5', [LookupController::class, 'dimensiP5']);
 });
 

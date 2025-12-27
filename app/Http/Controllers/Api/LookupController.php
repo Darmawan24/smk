@@ -52,7 +52,7 @@ class LookupController extends Controller
     public function mataPelajaran(Request $request)
     {
         $query = MataPelajaran::where('is_active', true)
-            ->select('id', 'kode_mapel', 'nama_mapel', 'kelompok', 'kelas_id');
+            ->select('id', 'kode_mapel', 'nama_mapel', 'kelompok', 'kelas_id', 'kkm');
 
         // If user is guru, filter by guru_id
         $user = Auth::user();
@@ -71,9 +71,23 @@ class LookupController extends Controller
 
     /**
      * Get all guru for dropdown.
+     * If user is guru, return only current user's guru data.
      */
     public function guru()
     {
+        $user = Auth::user();
+        
+        // If user is guru, return only their guru data
+        if ($user && $user->role === 'guru' && $user->guru) {
+            return response()->json([
+                'id' => $user->guru->id,
+                'nuptk' => $user->guru->nuptk,
+                'nama_lengkap' => $user->guru->nama_lengkap,
+                'bidang_studi' => $user->guru->bidang_studi,
+            ]);
+        }
+        
+        // Otherwise, return all active guru
         $guru = Guru::with('user')->where('status', 'aktif')->get()->map(function ($guru) {
             return [
                 'id' => $guru->id,
@@ -96,11 +110,63 @@ class LookupController extends Controller
     }
 
     /**
+     * Get active tahun ajaran.
+     */
+    public function tahunAjaranAktif()
+    {
+        $tahunAjaran = TahunAjaran::where('is_active', true)->first();
+        
+        if (!$tahunAjaran) {
+            return response()->json([
+                'message' => 'Tahun ajaran aktif tidak ditemukan',
+            ], 404);
+        }
+
+        return response()->json($tahunAjaran);
+    }
+
+    /**
      * Get all dimensi P5 for dropdown.
      */
     public function dimensiP5()
     {
         $dimensi = DimensiP5::select('id', 'nama_dimensi', 'deskripsi')->get();
         return response()->json($dimensi);
+    }
+
+    /**
+     * Get kelas for a specific mata pelajaran.
+     * 
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function kelasByMapel(Request $request)
+    {
+        $request->validate([
+            'mata_pelajaran_id' => 'required|exists:mata_pelajaran,id',
+        ]);
+
+        $mataPelajaran = MataPelajaran::with(['kelas.jurusan'])->findOrFail($request->mata_pelajaran_id);
+
+        // Verify that this mata pelajaran belongs to the current guru (if user is guru)
+        $user = Auth::user();
+        if ($user && $user->role === 'guru' && $user->guru) {
+            if ($mataPelajaran->guru_id !== $user->guru->id) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki akses untuk mata pelajaran ini',
+                ], 403);
+            }
+        }
+
+        $kelas = $mataPelajaran->kelas->map(function ($kelas) {
+            return [
+                'id' => $kelas->id,
+                'nama_kelas' => $kelas->nama_kelas,
+                'full_name' => $kelas->full_name,
+                'tingkat' => $kelas->tingkat,
+            ];
+        });
+
+        return response()->json($kelas);
     }
 }
