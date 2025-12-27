@@ -28,6 +28,8 @@ import PklIndex from './pages/admin/pkl/Index.vue'
 import UkkIndex from './pages/admin/ukk/Index.vue'
 import AdminP5Index from './pages/admin/p5/Index.vue'
 import CetakRaporHasilBelajarIndex from './pages/admin/cetak-rapor/hasil-belajar/Index.vue'
+import CetakRaporP5Index from './pages/admin/cetak-rapor/p5/Index.vue'
+import CetakRaporLeggerIndex from './pages/admin/cetak-rapor/legger/Index.vue'
 import TahunAjaranIndex from './pages/admin/tahun-ajaran/Index.vue'
 import UserIndex from './pages/admin/user/Index.vue'
 import WaliKelasIndex from './pages/admin/wali-kelas/Index.vue'
@@ -166,11 +168,21 @@ const routes = [
         name: 'admin.p5.index',
         component: AdminP5Index
       },
-      {
-        path: 'cetak-rapor/hasil-belajar',
-        name: 'admin.cetak-rapor.hasil-belajar',
-        component: CetakRaporHasilBelajarIndex
-      },
+        {
+          path: 'cetak-rapor/hasil-belajar',
+          name: 'admin.cetak-rapor.hasil-belajar',
+          component: CetakRaporHasilBelajarIndex
+        },
+        {
+          path: 'cetak-rapor/p5',
+          name: 'admin.cetak-rapor.p5',
+          component: CetakRaporP5Index
+        },
+        {
+          path: 'cetak-rapor/legger',
+          name: 'admin.cetak-rapor.legger',
+          component: CetakRaporLeggerIndex
+        },
       {
         path: 'tahun-ajaran',
         name: 'admin.tahun-ajaran.index',

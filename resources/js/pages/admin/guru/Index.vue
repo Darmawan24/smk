@@ -13,7 +13,7 @@
         @search="handleSearch"
       >
         <template #actions>
-          <button @click="showForm = true" class="btn btn-primary">
+          <button @click="openForm" class="btn btn-primary">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
             </svg>
@@ -93,46 +93,47 @@
       <!-- Form Modal -->
       <Modal v-model:show="showForm" :title="isEditing ? 'Edit Guru' : 'Tambah Guru'" size="lg">
         <form @submit.prevent="submitForm" id="guru-form" class="space-y-4">
+          <!-- User Selection (only for new guru) -->
+          <div v-if="!isEditing">
+            <FormField
+              v-model="form.user_id"
+              type="select"
+              label="Pilih User"
+              placeholder="Pilih user yang sudah ada"
+              :options="availableUserOptions"
+              option-value="id"
+              option-label="label"
+              required
+              :error="errors.user_id"
+              @update:model-value="onUserSelect"
+            />
+            <div v-if="selectedUser" class="mt-2 p-3 bg-blue-50 rounded-lg">
+              <p class="text-sm text-gray-700">
+                <strong>Nama:</strong> {{ selectedUser.name }}<br>
+                <strong>Email:</strong> {{ selectedUser.email }}<br>
+                <strong>Role:</strong> {{ getRoleLabel(selectedUser.role) }}<br>
+                <strong v-if="selectedUser.nuptk">NUPTK:</strong> {{ selectedUser.nuptk || '-' }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Display user info when editing -->
+          <div v-if="isEditing && selectedGuru?.user" class="p-3 bg-gray-50 rounded-lg mb-4">
+            <p class="text-sm text-gray-700">
+              <strong>Nama:</strong> {{ selectedGuru.user.name }}<br>
+              <strong>Email:</strong> {{ selectedGuru.user.email }}<br>
+              <strong>Role:</strong> {{ getRoleLabel(selectedGuru.user.role) }}
+            </p>
+          </div>
+
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
               v-model="form.nuptk"
-              label="NIP"
-              placeholder="Masukkan NIP"
-              required
+              label="NUPTK"
+              placeholder="Masukkan NUPTK"
+              :required="!isEditing"
               :error="errors.nuptk"
-            />
-            <FormField
-              v-model="form.nama_lengkap"
-              label="Nama Lengkap"
-              placeholder="Masukkan nama lengkap"
-              required
-              :error="errors.nama_lengkap"
-            />
-            <FormField
-              v-model="form.email"
-              type="email"
-              label="Email"
-              placeholder="Masukkan email"
-              required
-              :error="errors.email"
-            />
-            <FormField
-              v-if="!isEditing"
-              v-model="form.password"
-              type="password"
-              label="Password"
-              placeholder="Masukkan password (min. 8 karakter)"
-              required
-              :error="errors.password"
-            />
-            <FormField
-              v-model="form.role"
-              type="select"
-              label="Role"
-              placeholder="Pilih role"
-              :options="roleOptions"
-              required
-              :error="errors.role"
+              :disabled="isEditing"
             />
             <FormField
               v-model="form.jenis_kelamin"
@@ -319,11 +320,8 @@ const selectedGuru = ref(null)
 
 // Form data
 const form = reactive({
+  user_id: '',
   nuptk: '',
-  nama_lengkap: '',
-  email: '',
-  password: '',
-  role: '',
   jenis_kelamin: '',
   tempat_lahir: '',
   tanggal_lahir: '',
@@ -335,6 +333,10 @@ const form = reactive({
   tanggal_masuk: '',
   status: 'aktif'
 })
+
+// Available users for selection
+const availableUserOptions = ref([])
+const selectedUser = ref(null)
 
 const resetPasswordForm = reactive({
   password: '',
@@ -413,6 +415,42 @@ const resetForm = () => {
   errors.value = {}
   isEditing.value = false
   selectedGuru.value = null
+  selectedUser.value = null
+}
+
+const fetchAvailableUsers = async () => {
+  try {
+    const response = await axios.get('/admin/guru/available-users')
+    availableUserOptions.value = response.data.map(user => ({
+      ...user,
+      label: `${user.name} (${user.email}) - ${getRoleLabel(user.role)}`
+    }))
+  } catch (error) {
+    console.error('Failed to fetch available users:', error)
+    toast.error('Gagal mengambil data user')
+  }
+}
+
+const onUserSelect = (userId) => {
+  const user = availableUserOptions.value.find(u => u.id == userId)
+  if (user) {
+    selectedUser.value = user
+    // Auto-fill NUPTK if available
+    if (user.nuptk) {
+      form.nuptk = user.nuptk
+    }
+  } else {
+    selectedUser.value = null
+  }
+}
+
+const getRoleLabel = (role) => {
+  const roleMap = {
+    'guru': 'Guru',
+    'wali_kelas': 'Wali Kelas',
+    'kepala_sekolah': 'Kepala Sekolah'
+  }
+  return roleMap[role] || role
 }
 
 const closeForm = () => {
@@ -420,13 +458,17 @@ const closeForm = () => {
   resetForm()
 }
 
+const openForm = () => {
+  showForm.value = true
+  if (!isEditing.value) {
+    fetchAvailableUsers()
+  }
+}
+
 const editGuru = (guruItem) => {
   isEditing.value = true
   selectedGuru.value = guruItem
   form.nuptk = guruItem.nuptk || ''
-  form.nama_lengkap = guruItem.nama_lengkap || ''
-  form.email = guruItem.user?.email || ''
-  form.role = guruItem.user?.role || ''
   form.jenis_kelamin = guruItem.jenis_kelamin || ''
   form.tempat_lahir = guruItem.tempat_lahir || ''
   form.tanggal_lahir = guruItem.tanggal_lahir || ''
@@ -448,9 +490,26 @@ const submitForm = async () => {
     const url = isEditing.value ? `/admin/guru/${selectedGuru.value.id}` : '/admin/guru'
     const method = isEditing.value ? 'put' : 'post'
     
-    const payload = { ...form }
-    if (isEditing.value) {
-      delete payload.password
+    // Only send required fields
+    const payload = {
+      nuptk: form.nuptk,
+      jenis_kelamin: form.jenis_kelamin,
+      tempat_lahir: form.tempat_lahir,
+      tanggal_lahir: form.tanggal_lahir,
+      agama: form.agama,
+      alamat: form.alamat,
+      no_hp: form.no_hp,
+      pendidikan_terakhir: form.pendidikan_terakhir,
+      bidang_studi: form.bidang_studi,
+      tanggal_masuk: form.tanggal_masuk,
+    }
+
+    // Add user_id only for new guru
+    if (!isEditing.value) {
+      payload.user_id = form.user_id
+    } else {
+      // Add status for editing
+      payload.status = form.status
     }
     
     await axios[method](url, payload)

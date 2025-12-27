@@ -53,6 +53,7 @@ class GuruController extends Controller
 
     /**
      * Store a newly created guru.
+     * User must be selected from existing users.
      *
      * @param  Request  $request
      * @return \Illuminate\Http\JsonResponse
@@ -60,11 +61,7 @@ class GuruController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nuptk' => ['required', 'string', 'unique:guru'],
-            'nama_lengkap' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'unique:users'],
-            'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', 'in:guru,wali_kelas,kepala_sekolah'],
+            'user_id' => ['required', 'exists:users,id'],
             'jenis_kelamin' => ['required', 'in:L,P'],
             'tempat_lahir' => ['required', 'string'],
             'tanggal_lahir' => ['required', 'date'],
@@ -78,18 +75,41 @@ class GuruController extends Controller
 
         DB::beginTransaction();
         try {
-            $user = User::create([
-                'name' => $request->nama_lengkap,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'role' => $request->role,
-                'nuptk' => $request->nuptk,
-            ]);
+            $user = User::findOrFail($request->user_id);
+
+            // Check if user already has guru profile
+            if ($user->guru) {
+                return response()->json([
+                    'message' => 'User ini sudah memiliki data guru',
+                ], 422);
+            }
+
+            // Verify user role is appropriate for guru
+            if (!in_array($user->role, ['guru', 'wali_kelas', 'kepala_sekolah'])) {
+                return response()->json([
+                    'message' => 'Role user tidak sesuai untuk guru',
+                ], 422);
+            }
+
+            // Get nuptk from user or request
+            $nuptk = $user->nuptk ?? $request->nuptk;
+            if (!$nuptk) {
+                return response()->json([
+                    'message' => 'NUPTK harus diisi',
+                ], 422);
+            }
+
+            // Check if nuptk already exists in guru table
+            if (Guru::where('nuptk', $nuptk)->exists()) {
+                return response()->json([
+                    'message' => 'NUPTK sudah digunakan',
+                ], 422);
+            }
 
             $guru = Guru::create([
                 'user_id' => $user->id,
-                'nuptk' => $request->nuptk,
-                'nama_lengkap' => $request->nama_lengkap,
+                'nuptk' => $nuptk,
+                'nama_lengkap' => $user->name, // Use name from user
                 'jenis_kelamin' => $request->jenis_kelamin,
                 'tempat_lahir' => $request->tempat_lahir,
                 'tanggal_lahir' => $request->tanggal_lahir,
@@ -141,6 +161,7 @@ class GuruController extends Controller
 
     /**
      * Update the specified guru.
+     * User data (name, email, role) is not updated here.
      *
      * @param  Request  $request
      * @param  Guru  $guru
@@ -150,9 +171,6 @@ class GuruController extends Controller
     {
         $request->validate([
             'nuptk' => ['required', 'string', Rule::unique('guru')->ignore($guru->id)],
-            'nama_lengkap' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', Rule::unique('users')->ignore($guru->user_id)],
-            'role' => ['required', 'in:guru,wali_kelas,kepala_sekolah'],
             'jenis_kelamin' => ['required', 'in:L,P'],
             'tempat_lahir' => ['required', 'string'],
             'tanggal_lahir' => ['required', 'date'],
@@ -166,14 +184,27 @@ class GuruController extends Controller
 
         DB::beginTransaction();
         try {
-            $guru->user->update([
-                'name' => $request->nama_lengkap,
-                'email' => $request->email,
-                'role' => $request->role,
-                'nuptk' => $request->nuptk,
-            ]);
+            // Update NUPTK in user if provided and different
+            if ($request->has('nuptk') && $guru->user->nuptk !== $request->nuptk) {
+                $guru->user->update([
+                    'nuptk' => $request->nuptk,
+                ]);
+            }
 
-            $guru->update($request->except(['email', 'password', 'role']));
+            // Update nama_lengkap in guru to match user name
+            $guru->update([
+                'nuptk' => $request->nuptk,
+                'nama_lengkap' => $guru->user->name, // Keep in sync with user name
+                'jenis_kelamin' => $request->jenis_kelamin,
+                'tempat_lahir' => $request->tempat_lahir,
+                'tanggal_lahir' => $request->tanggal_lahir,
+                'agama' => $request->agama,
+                'alamat' => $request->alamat,
+                'no_hp' => $request->no_hp,
+                'pendidikan_terakhir' => $request->pendidikan_terakhir,
+                'bidang_studi' => $request->bidang_studi,
+                'status' => $request->status,
+            ]);
 
             DB::commit();
 
@@ -258,5 +289,23 @@ class GuruController extends Controller
             'message' => 'Status guru berhasil diubah',
             'data' => $guru->fresh(),
         ]);
+    }
+
+    /**
+     * Get users that don't have guru profile yet.
+     *
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function availableUsers(Request $request)
+    {
+        $users = User::whereIn('role', ['guru', 'wali_kelas', 'kepala_sekolah'])
+            ->whereDoesntHave('guru')
+            ->where('is_active', true)
+            ->select('id', 'name', 'email', 'role', 'nuptk')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($users);
     }
 }

@@ -64,6 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('siswa/{siswa}/move-class', [SiswaController::class, 'moveClass']);
         Route::post('siswa/{siswa}/reset-password', [SiswaController::class, 'resetPassword']);
 
+        Route::get('guru/available-users', [GuruController::class, 'availableUsers']);
         Route::apiResource('guru', GuruController::class);
         Route::post('guru/{guru}/reset-password', [GuruController::class, 'resetPassword']);
         Route::post('guru/{guru}/toggle-status', [GuruController::class, 'toggleStatus']);
@@ -101,6 +102,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('cetak-rapor/hasil-belajar/{rapor}', [CetakRaporController::class, 'detailHasilBelajar']);
         Route::get('cetak-rapor/hasil-belajar/{rapor}/preview', [CetakRaporController::class, 'previewHasilBelajar']);
         Route::get('cetak-rapor/hasil-belajar/{rapor}/download', [CetakRaporController::class, 'downloadHasilBelajar']);
+        
+        Route::get('cetak-rapor/p5', [CetakRaporController::class, 'hasilP5']);
+        Route::get('cetak-rapor/p5/{siswa}', [CetakRaporController::class, 'detailHasilP5']);
+        Route::get('cetak-rapor/p5/{siswa}/preview', [CetakRaporController::class, 'previewHasilP5']);
+        Route::get('cetak-rapor/p5/{siswa}/download', [CetakRaporController::class, 'downloadHasilP5']);
+        
+        Route::get('cetak-rapor/legger/{kelas}', [CetakRaporController::class, 'legger']);
+        Route::get('cetak-rapor/legger/{kelas}/download', [CetakRaporController::class, 'downloadLegger']);
     });
 
     // Guru routes
