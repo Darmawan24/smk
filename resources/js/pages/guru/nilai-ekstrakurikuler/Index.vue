@@ -15,7 +15,7 @@
 
       <!-- Filters -->
       <div class="bg-white shadow rounded-lg p-6 mb-6">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             v-model="selectedEkstrakurikuler"
             type="select"
@@ -24,16 +24,6 @@
             :options="ekstrakurikulerOptions"
             option-value="id"
             option-label="nama"
-            @update:model-value="loadSiswa"
-          />
-          <FormField
-            v-model="selectedTahunAjaran"
-            type="select"
-            label="Tahun Ajaran"
-            placeholder="Pilih Tahun Ajaran"
-            :options="tahunAjaranOptions"
-            option-value="id"
-            option-label="tahun"
             @update:model-value="loadSiswa"
           />
         </div>
@@ -46,12 +36,12 @@
       </div>
 
       <!-- No Selection State -->
-      <div v-else-if="!selectedEkstrakurikuler || !selectedTahunAjaran" class="bg-white shadow rounded-lg p-8 text-center">
+      <div v-else-if="!selectedEkstrakurikuler" class="bg-white shadow rounded-lg p-8 text-center">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
         </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">Pilih Ekstrakurikuler dan Tahun Ajaran</h3>
-        <p class="mt-1 text-sm text-gray-500">Pilih ekstrakurikuler dan tahun ajaran untuk mulai input nilai.</p>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Pilih Ekstrakurikuler</h3>
+        <p class="mt-1 text-sm text-gray-500">Pilih ekstrakurikuler untuk mulai input nilai.</p>
       </div>
 
       <!-- Nilai Table -->
@@ -63,18 +53,20 @@
                 Nilai {{ selectedEkstrakurikulerName }}
               </h3>
               <p class="mt-1 text-sm text-gray-500">
-                Tahun Ajaran: {{ selectedTahunAjaranName }}
+                Tahun Ajaran: {{ tahunAjaranAktifName }}
               </p>
             </div>
-            <button 
-              @click="showAddModal = true" 
-              class="btn btn-primary"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-              </svg>
-              Tambah Nilai
-            </button>
+            <div class="flex items-center space-x-3">
+              <button 
+                @click="openBatchAddModal" 
+                class="btn btn-primary"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Tambah Nilai
+              </button>
+            </div>
           </div>
         </div>
 
@@ -124,6 +116,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                       </svg>
                     </button>
+                    <button @click="confirmDeleteNilai(nilai)" class="text-red-600 hover:text-red-900">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -141,40 +138,111 @@
         </div>
       </div>
 
-      <!-- Add/Edit Modal -->
-      <Modal :show="showModal" @update:show="handleModalUpdate" :title="showEditModal ? 'Edit Nilai' : 'Tambah Nilai'" size="lg">
-        <form @submit.prevent="submitForm" class="space-y-4">
+      <!-- Batch Add Nilai Modal -->
+      <Modal :show="showBatchAddModal" @update:show="handleBatchModalUpdate" title="Tambah Nilai Ekstrakurikuler" size="lg">
+        <form @submit.prevent="submitBatchForm" class="space-y-4">
           <FormField
-            v-model="form.siswa_id"
+            v-model="batchForm.kelas_id"
             type="select"
-            label="Siswa"
-            placeholder="Pilih Siswa"
-            :options="siswaOptions"
+            label="Kelas"
+            placeholder="Pilih Kelas"
+            :options="kelasOptions"
+            option-value="id"
+            option-label="nama_kelas"
+            required
+            :error="errors.kelas_id"
+            @update:model-value="onBatchKelasChange"
+          />
+          <MultiSelect
+            v-model="batchForm.siswa_ids"
+            :options="filteredSiswaOptions"
             option-value="id"
             option-label="nama_lengkap"
-            required
-            :error="errors.siswa_id"
-            :disabled="showEditModal"
+            label="Pilih Siswa"
+            :placeholder="batchForm.kelas_id ? 'Pilih siswa yang akan ditambahkan' : 'Pilih kelas terlebih dahulu'"
+            :required="true"
+            :disabled="!batchForm.kelas_id"
+            :error="errors.siswa_ids"
           />
           <FormField
-            v-model="form.predikat"
+            v-model="batchForm.predikat"
             type="select"
             label="Predikat"
             placeholder="Pilih Predikat"
             :options="predikatOptions"
             required
             :error="errors.predikat"
+            @update:model-value="updateKeteranganFromPredikat"
           />
           <FormField
-            v-model="form.keterangan"
+            v-model="batchForm.keterangan"
             type="textarea"
             label="Keterangan"
-            placeholder="Masukkan keterangan (opsional)"
+            placeholder="Keterangan akan diisi otomatis sesuai predikat"
             :rows="3"
+            :readonly="true"
             :error="errors.keterangan"
           />
           <div class="flex justify-end space-x-3 pt-4">
-            <button type="button" @click="closeModal" class="btn btn-secondary">
+            <button type="button" @click="closeBatchModal" class="btn btn-secondary">
+              Batal
+            </button>
+            <button type="submit" :disabled="batchSubmitting" class="btn btn-primary">
+              <svg v-if="batchSubmitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ batchSubmitting ? 'Menambahkan...' : 'Tambah Nilai' }}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <!-- Delete Confirmation Modal -->
+      <Modal :show="showDeleteConfirm" @update:show="handleDeleteModalUpdate" title="Hapus Nilai" size="md">
+        <div class="space-y-4">
+          <p class="text-sm text-gray-600">
+            Apakah Anda yakin ingin menghapus nilai ekstrakurikuler untuk siswa <strong>{{ deletingNilai?.siswa?.nama_lengkap }}</strong>?
+          </p>
+          <div class="flex justify-end space-x-3 pt-4">
+            <button type="button" @click="closeDeleteModal" class="btn btn-secondary">
+              Batal
+            </button>
+            <button type="button" @click="deleteNilai" :disabled="deleting" class="btn btn-danger">
+              <svg v-if="deleting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ deleting ? 'Menghapus...' : 'Hapus' }}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <!-- Edit Modal -->
+      <Modal :show="showEditModal" @update:show="handleEditModalUpdate" title="Edit Nilai" size="lg">
+        <form @submit.prevent="submitEditForm" class="space-y-4">
+          <FormField
+            v-model="editForm.predikat"
+            type="select"
+            label="Predikat"
+            placeholder="Pilih Predikat"
+            :options="predikatOptions"
+            required
+            :error="errors.predikat"
+            @update:model-value="updateEditKeteranganFromPredikat"
+          />
+          <FormField
+            v-model="editForm.keterangan"
+            type="textarea"
+            label="Keterangan"
+            placeholder="Keterangan akan diisi otomatis sesuai predikat"
+            :rows="3"
+            :readonly="true"
+            :error="errors.keterangan"
+          />
+          <div class="flex justify-end space-x-3 pt-4">
+            <button type="button" @click="closeEditModal" class="btn btn-secondary">
               Batal
             </button>
             <button type="submit" :disabled="submitting" class="btn btn-primary">
@@ -197,29 +265,39 @@ import { useToast } from 'vue-toastification'
 import axios from 'axios'
 import FormField from '../../../components/ui/FormField.vue'
 import Modal from '../../../components/ui/Modal.vue'
+import MultiSelect from '../../../components/ui/MultiSelect.vue'
 
 const toast = useToast()
 
 // Data
 const ekstrakurikulerOptions = ref([])
-const tahunAjaranOptions = ref([])
 const siswaOptions = ref([])
+const allSiswaOptions = ref([])
+const kelasOptions = ref([])
 const nilaiData = ref([])
+const tahunAjaranAktif = ref(null)
 
 // State
 const loading = ref(false)
 const submitting = ref(false)
+const batchSubmitting = ref(false)
+const deleting = ref(false)
 const selectedEkstrakurikuler = ref('')
-const selectedTahunAjaran = ref('')
-const showAddModal = ref(false)
 const showEditModal = ref(false)
+const showBatchAddModal = ref(false)
+const showDeleteConfirm = ref(false)
 const editingNilai = ref(null)
+const deletingNilai = ref(null)
 
 // Form
-const form = ref({
-  siswa_id: '',
-  ekstrakurikuler_id: '',
-  tahun_ajaran_id: '',
+const batchForm = ref({
+  kelas_id: '',
+  siswa_ids: [],
+  predikat: '',
+  keterangan: ''
+})
+
+const editForm = ref({
   predikat: '',
   keterangan: ''
 })
@@ -228,10 +306,10 @@ const errors = ref({})
 
 // Options
 const predikatOptions = [
-  { value: 'A', label: 'A - Sangat Baik' },
-  { value: 'B', label: 'B - Baik' },
-  { value: 'C', label: 'C - Cukup' },
-  { value: 'D', label: 'D - Perlu Bimbingan' }
+  { value: 'A', label: 'A' },
+  { value: 'B', label: 'B' },
+  { value: 'C', label: 'C' },
+  { value: 'D', label: 'D' }
 ]
 
 // Computed
@@ -240,47 +318,115 @@ const selectedEkstrakurikulerName = computed(() => {
   return ekskul?.nama || ''
 })
 
-const selectedTahunAjaranName = computed(() => {
-  const ta = tahunAjaranOptions.value.find(t => t.id == selectedTahunAjaran.value)
-  return ta ? `${ta.tahun} - Semester ${ta.semester}` : ''
+const tahunAjaranAktifName = computed(() => {
+  if (tahunAjaranAktif.value) {
+    return `${tahunAjaranAktif.value.tahun} - Semester ${tahunAjaranAktif.value.semester}`
+  }
+  return 'Memuat...'
 })
 
-const showModal = computed(() => {
-  return showAddModal.value || showEditModal.value
+// Helper function to get keterangan from predikat
+const getKeteranganFromPredikat = (predikat, namaEkstrakurikuler = '') => {
+  const keteranganMap = {
+    'A': 'Sangat Baik',
+    'B': 'Baik',
+    'C': 'Cukup',
+    'D': 'Perlu Bimbingan'
+  }
+  const predikatDesc = keteranganMap[predikat] || ''
+  if (!predikatDesc) return ''
+  if (namaEkstrakurikuler) {
+    return `Telah mengikut Ekstrakurikuler ${namaEkstrakurikuler} dengan ${predikatDesc}`
+  }
+  return `Telah mengikut Ekstrakurikuler dengan ${predikatDesc}`
+}
+
+const filteredSiswaOptions = computed(() => {
+  if (!batchForm.value.kelas_id) {
+    return []
+  }
+  
+  // Filter siswa berdasarkan kelas yang dipilih
+  // Handle both kelas_id (direct) and kelas.id (relation)
+  let filtered = allSiswaOptions.value.filter(siswa => {
+    const siswaKelasId = siswa.kelas_id || siswa.kelas?.id
+    // Convert to string for comparison to handle both string and number IDs
+    return String(siswaKelasId) === String(batchForm.value.kelas_id)
+  })
+  
+  // Filter out siswa yang sudah terdaftar di ekskul ini
+  if (selectedEkstrakurikuler.value && tahunAjaranAktif.value) {
+    const registeredSiswaIds = nilaiData.value.map(n => n.siswa_id)
+    filtered = filtered.filter(siswa => 
+      !registeredSiswaIds.includes(siswa.id)
+    )
+  }
+  
+  return filtered
 })
 
 // Methods
 const fetchEkstrakurikuler = async () => {
   try {
-    const response = await axios.get('/admin/ekstrakurikuler')
-    ekstrakurikulerOptions.value = response.data.data || response.data
+    const response = await axios.get('/guru/nilai-ekstrakurikuler/my-ekstrakurikuler')
+    ekstrakurikulerOptions.value = response.data || []
   } catch (error) {
     console.error('Failed to fetch ekstrakurikuler:', error)
+    toast.error('Gagal mengambil data ekstrakurikuler')
   }
 }
 
-const fetchTahunAjaran = async () => {
+const fetchTahunAjaranAktif = async () => {
   try {
-    const response = await axios.get('/lookup/tahun-ajaran')
-    tahunAjaranOptions.value = response.data
+    const response = await axios.get('/lookup/tahun-ajaran-aktif')
+    tahunAjaranAktif.value = response.data
   } catch (error) {
-    console.error('Failed to fetch tahun ajaran:', error)
+    console.error('Failed to fetch tahun ajaran aktif:', error)
+    toast.error('Gagal mengambil tahun ajaran aktif')
+  }
+}
+
+const fetchKelas = async () => {
+  try {
+    const response = await axios.get('/lookup/kelas')
+    kelasOptions.value = response.data || []
+  } catch (error) {
+    console.error('Failed to fetch kelas:', error)
+    toast.error('Gagal mengambil data kelas')
   }
 }
 
 const fetchSiswa = async () => {
   try {
-    const response = await axios.get('/admin/siswa', {
-      params: { status: 'aktif', per_page: 1000 }
-    })
-    siswaOptions.value = response.data.data || response.data
+    const response = await axios.get('/guru/nilai-ekstrakurikuler/siswa')
+    allSiswaOptions.value = response.data || []
+    updateSiswaOptions()
   } catch (error) {
     console.error('Failed to fetch siswa:', error)
+    toast.error('Gagal mengambil data siswa')
   }
 }
 
+const onBatchKelasChange = () => {
+  // Reset siswa selection when kelas changes
+  batchForm.value.siswa_ids = []
+}
+
+const updateSiswaOptions = () => {
+  if (!selectedEkstrakurikuler.value || !tahunAjaranAktif.value) {
+    siswaOptions.value = allSiswaOptions.value
+    return
+  }
+  
+  // Filter out siswa yang sudah terdaftar di ekskul ini
+  const registeredSiswaIds = nilaiData.value.map(n => n.siswa_id)
+  siswaOptions.value = allSiswaOptions.value.filter(siswa => 
+    !registeredSiswaIds.includes(siswa.id)
+  )
+}
+
 const loadSiswa = async () => {
-  if (!selectedEkstrakurikuler.value || !selectedTahunAjaran.value) {
+  if (!selectedEkstrakurikuler.value || !tahunAjaranAktif.value) {
     nilaiData.value = []
     return
   }
@@ -288,16 +434,14 @@ const loadSiswa = async () => {
   try {
     loading.value = true
     // Get all siswa with nilai for this ekstrakurikuler
-    const response = await axios.get('/admin/siswa', {
-      params: { status: 'aktif', per_page: 1000 }
-    })
-    const allSiswa = response.data.data || response.data
+    const response = await axios.get('/guru/nilai-ekstrakurikuler/siswa')
+    const allSiswa = response.data || []
     
     // Fetch nilai for each siswa
     const nilaiPromises = allSiswa.map(async (siswa) => {
       try {
         const nilaiRes = await axios.get(`/nilai-ekstrakurikuler/siswa/${siswa.id}`, {
-          params: { tahun_ajaran_id: selectedTahunAjaran.value }
+          params: { tahun_ajaran_id: tahunAjaranAktif.value.id }
         })
         const nilai = nilaiRes.data.nilai_ekstrakurikuler?.find(
           n => n.ekstrakurikuler_id == selectedEkstrakurikuler.value
@@ -310,6 +454,7 @@ const loadSiswa = async () => {
     
     const results = await Promise.all(nilaiPromises)
     nilaiData.value = results.filter(n => n !== null)
+    updateSiswaOptions()
   } catch (error) {
     toast.error('Gagal mengambil data nilai')
     console.error(error)
@@ -338,88 +483,199 @@ const getPredikatDescription = (predikat) => {
   return descriptions[predikat] || predikat
 }
 
-const editNilai = (nilai) => {
-  editingNilai.value = nilai
-  form.value = {
-    siswa_id: nilai.siswa_id,
-    ekstrakurikuler_id: nilai.ekstrakurikuler_id,
-    tahun_ajaran_id: nilai.tahun_ajaran_id,
-    predikat: nilai.predikat,
-    keterangan: nilai.keterangan || ''
+const updateKeteranganFromPredikat = () => {
+  if (batchForm.value.predikat) {
+    const namaEkskul = selectedEkstrakurikulerName.value
+    batchForm.value.keterangan = getKeteranganFromPredikat(batchForm.value.predikat, namaEkskul)
   }
-  showEditModal.value = true
 }
 
-const handleModalUpdate = (value) => {
+const updateEditKeteranganFromPredikat = () => {
+  if (editForm.value.predikat) {
+    const namaEkskul = editingNilai.value?.ekstrakurikuler?.nama || selectedEkstrakurikulerName.value
+    editForm.value.keterangan = getKeteranganFromPredikat(editForm.value.predikat, namaEkskul)
+  }
+}
+
+const openBatchAddModal = () => {
+  batchForm.value = {
+    kelas_id: '',
+    siswa_ids: [],
+    predikat: '',
+    keterangan: ''
+  }
+  errors.value = {}
+  showBatchAddModal.value = true
+}
+
+const handleBatchModalUpdate = (value) => {
   if (value === false) {
-    closeModal()
+    closeBatchModal()
   }
 }
 
-const closeModal = () => {
-  showAddModal.value = false
-  showEditModal.value = false
-  editingNilai.value = null
-  form.value = {
-    siswa_id: '',
-    ekstrakurikuler_id: '',
-    tahun_ajaran_id: '',
+const closeBatchModal = () => {
+  showBatchAddModal.value = false
+  batchForm.value = {
+    kelas_id: '',
+    siswa_ids: [],
     predikat: '',
     keterangan: ''
   }
   errors.value = {}
 }
 
-const submitForm = async () => {
+const submitBatchForm = async () => {
   errors.value = {}
   
-  if (showEditModal.value && editingNilai.value) {
-    // Update
-    try {
-      submitting.value = true
-      await axios.put(`/nilai-ekstrakurikuler/${editingNilai.value.id}`, {
-        predikat: form.value.predikat,
-        keterangan: form.value.keterangan
-      })
-      toast.success('Nilai berhasil diperbarui')
-      closeModal()
-      await loadSiswa()
-    } catch (error) {
-      if (error.response?.data?.errors) {
-        errors.value = error.response.data.errors
-      } else {
-        toast.error(error.response?.data?.message || 'Gagal memperbarui nilai')
-      }
-    } finally {
-      submitting.value = false
+  if (!batchForm.value.kelas_id) {
+    toast.error('Pilih kelas terlebih dahulu')
+    return
+  }
+  
+  if (!batchForm.value.siswa_ids || batchForm.value.siswa_ids.length === 0) {
+    toast.error('Pilih minimal satu siswa')
+    return
+  }
+  
+  if (!batchForm.value.predikat) {
+    toast.error('Pilih predikat terlebih dahulu')
+    return
+  }
+  
+  if (!selectedEkstrakurikuler.value) {
+    toast.error('Pilih ekstrakurikuler terlebih dahulu')
+    return
+  }
+  
+  if (!tahunAjaranAktif.value?.id) {
+    toast.error('Tahun ajaran aktif tidak ditemukan')
+    return
+  }
+  
+  // Ensure keterangan is set from predikat if not already set
+  if (!batchForm.value.keterangan && batchForm.value.predikat) {
+    const namaEkskul = selectedEkstrakurikulerName.value
+    batchForm.value.keterangan = getKeteranganFromPredikat(batchForm.value.predikat, namaEkskul)
+  }
+  
+  try {
+    batchSubmitting.value = true
+    const response = await axios.post('/guru/nilai-ekstrakurikuler/batch-store', {
+      siswa_ids: batchForm.value.siswa_ids,
+      ekstrakurikuler_id: selectedEkstrakurikuler.value,
+      tahun_ajaran_id: tahunAjaranAktif.value.id,
+      predikat: batchForm.value.predikat,
+      keterangan: batchForm.value.keterangan
+    })
+    
+    toast.success(response.data.message || 'Siswa berhasil ditambahkan')
+    closeBatchModal()
+    await loadSiswa()
+  } catch (error) {
+    if (error.response?.data?.errors) {
+      errors.value = error.response.data.errors
+    } else {
+      toast.error(error.response?.data?.message || 'Gagal menambahkan siswa')
     }
-  } else {
-    // Create
-    try {
-      submitting.value = true
-      form.value.ekstrakurikuler_id = selectedEkstrakurikuler.value
-      form.value.tahun_ajaran_id = selectedTahunAjaran.value
-      
-      await axios.post('/nilai-ekstrakurikuler', form.value)
-      toast.success('Nilai berhasil ditambahkan')
-      closeModal()
-      await loadSiswa()
-    } catch (error) {
-      if (error.response?.data?.errors) {
-        errors.value = error.response.data.errors
-      } else {
-        toast.error(error.response?.data?.message || 'Gagal menambahkan nilai')
-      }
-    } finally {
-      submitting.value = false
+  } finally {
+    batchSubmitting.value = false
+  }
+}
+
+const editNilai = (nilai) => {
+  editingNilai.value = nilai
+  const namaEkskul = nilai.ekstrakurikuler?.nama || selectedEkstrakurikulerName.value
+  editForm.value = {
+    predikat: nilai.predikat,
+    keterangan: nilai.keterangan || getKeteranganFromPredikat(nilai.predikat, namaEkskul)
+  }
+  showEditModal.value = true
+}
+
+const handleEditModalUpdate = (value) => {
+  if (value === false) {
+    closeEditModal()
+  }
+}
+
+const closeEditModal = () => {
+  showEditModal.value = false
+  editingNilai.value = null
+  editForm.value = {
+    predikat: '',
+    keterangan: ''
+  }
+  errors.value = {}
+}
+
+const submitEditForm = async () => {
+  errors.value = {}
+  
+  if (!editingNilai.value) {
+    return
+  }
+  
+  try {
+    submitting.value = true
+    await axios.put(`/nilai-ekstrakurikuler/${editingNilai.value.id}`, {
+      predikat: editForm.value.predikat,
+      keterangan: editForm.value.keterangan
+    })
+    toast.success('Nilai berhasil diperbarui')
+    closeEditModal()
+    await loadSiswa()
+  } catch (error) {
+    if (error.response?.data?.errors) {
+      errors.value = error.response.data.errors
+    } else {
+      toast.error(error.response?.data?.message || 'Gagal memperbarui nilai')
     }
+  } finally {
+    submitting.value = false
+  }
+}
+
+const confirmDeleteNilai = (nilai) => {
+  deletingNilai.value = nilai
+  showDeleteConfirm.value = true
+}
+
+const handleDeleteModalUpdate = (value) => {
+  if (value === false) {
+    closeDeleteModal()
+  }
+}
+
+const closeDeleteModal = () => {
+  showDeleteConfirm.value = false
+  deletingNilai.value = null
+}
+
+const deleteNilai = async () => {
+  if (!deletingNilai.value) {
+    return
+  }
+  
+  try {
+    deleting.value = true
+    await axios.delete(`/nilai-ekstrakurikuler/${deletingNilai.value.id}`)
+    toast.success('Nilai berhasil dihapus')
+    closeDeleteModal()
+    await loadSiswa()
+  } catch (error) {
+    toast.error(error.response?.data?.message || 'Gagal menghapus nilai')
+    console.error(error)
+  } finally {
+    deleting.value = false
   }
 }
 
 // Lifecycle
-onMounted(() => {
-  fetchEkstrakurikuler()
-  fetchTahunAjaran()
+onMounted(async () => {
+  await fetchTahunAjaranAktif()
+  await fetchEkstrakurikuler()
+  await fetchKelas()
   fetchSiswa()
 })
 </script>

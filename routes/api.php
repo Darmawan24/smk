@@ -138,6 +138,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // PKL Management
         Route::get('pkl/pembimbing', [GuruPklController::class, 'myStudents']);
         Route::put('pkl/{pkl}/nilai-sekolah', [GuruPklController::class, 'updateNilaiSekolah']);
+
+        // Nilai Ekstrakurikuler
+        Route::get('nilai-ekstrakurikuler/siswa', [NilaiEkstrakurikulerController::class, 'getSiswa']);
+        Route::get('nilai-ekstrakurikuler/my-ekstrakurikuler', [NilaiEkstrakurikulerController::class, 'myEkstrakurikuler']);
+        Route::post('nilai-ekstrakurikuler/batch-store', [NilaiEkstrakurikulerController::class, 'batchStore']);
     });
 
     // Wali Kelas routes
@@ -205,6 +210,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('nilai-ekstrakurikuler/siswa/{siswa}', [NilaiEkstrakurikulerController::class, 'bySiswa']);
         Route::post('nilai-ekstrakurikuler', [NilaiEkstrakurikulerController::class, 'store']);
         Route::put('nilai-ekstrakurikuler/{nilaiEkstrakurikuler}', [NilaiEkstrakurikulerController::class, 'update']);
+        Route::delete('nilai-ekstrakurikuler/{nilaiEkstrakurikuler}', [NilaiEkstrakurikulerController::class, 'destroy']);
 
         // UKK - TODO: Create UkkController
         // Route::apiResource('ukk', UkkController::class);
