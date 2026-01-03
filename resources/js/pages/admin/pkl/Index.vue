@@ -23,10 +23,10 @@
 
         <template #filters>
           <FormField
-            v-model="filters.tahun_ajaran_id"
+            v-model="filters.jurusan_id"
             type="select"
-            placeholder="Pilih Tahun Ajaran"
-            :options="tahunAjaranFilterOptions"
+            placeholder="Pilih Jurusan"
+            :options="jurusanFilterOptions"
             option-value="id"
             option-label="label"
             @update:model-value="fetchPkl"
@@ -47,6 +47,12 @@
             <div class="text-gray-500 text-xs mt-1">
               Pembimbing: {{ item.pembimbing_perusahaan }}
             </div>
+          </div>
+        </template>
+
+        <template #cell-jurusan="{ item }">
+          <div class="text-sm text-gray-900">
+            {{ item.jurusan?.nama_jurusan || '-' }}
           </div>
         </template>
 
@@ -94,13 +100,13 @@
         <form @submit.prevent="submitForm" id="pkl-form" class="space-y-4">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
-              v-model="form.tahun_ajaran_id"
+              v-model="form.jurusan_id"
               type="select"
-              label="Tahun Ajaran"
-              placeholder="Pilih tahun ajaran"
-              :options="tahunAjaranOptions"
+              label="Jurusan"
+              placeholder="Pilih jurusan"
+              :options="jurusanOptions"
               required
-              :error="errors.tahun_ajaran_id"
+              :error="errors.jurusan_id"
             />
             <div class="sm:col-span-2">
               <FormField
@@ -212,7 +218,7 @@ const form = reactive({
   pembimbing_sekolah_id: '',
   tanggal_mulai: '',
   tanggal_selesai: '',
-  tahun_ajaran_id: ''
+  jurusan_id: ''
 })
 
 const errors = ref({})
@@ -220,13 +226,14 @@ const errors = ref({})
 // Filters
 const filters = reactive({
   search: '',
-  tahun_ajaran_id: '',
+  jurusan_id: '',
   status: ''
 })
 
 // Table columns
 const columns = [
   { key: 'perusahaan', label: 'Perusahaan', sortable: true },
+  { key: 'jurusan', label: 'Jurusan' },
   { key: 'pembimbing_sekolah', label: 'Pembimbing Sekolah' },
   { key: 'periode', label: 'Periode' },
   { key: 'status_pkl', label: 'Status' }
@@ -240,8 +247,8 @@ const statusOptions = [
   { value: 'selesai', label: 'Selesai' }
 ]
 
-const tahunAjaranOptions = ref([])
-const tahunAjaranFilterOptions = ref([{ id: '', label: 'Semua Tahun Ajaran' }])
+const jurusanOptions = ref([])
+const jurusanFilterOptions = ref([{ id: '', label: 'Semua Jurusan' }])
 const guruOptions = ref([])
 
 // Methods
@@ -250,7 +257,7 @@ const fetchPkl = async () => {
     loading.value = true
     const params = new URLSearchParams()
     if (filters.search) params.append('search', filters.search)
-    if (filters.tahun_ajaran_id) params.append('tahun_ajaran_id', filters.tahun_ajaran_id)
+    if (filters.jurusan_id) params.append('jurusan_id', filters.jurusan_id)
     if (filters.status) params.append('status', filters.status)
     params.append('per_page', 100)
 
@@ -271,28 +278,28 @@ const fetchPkl = async () => {
 }
 
 
-const fetchTahunAjaran = async () => {
+const fetchJurusan = async () => {
   try {
-    const response = await axios.get('/admin/tahun-ajaran', {
+    const response = await axios.get('/admin/jurusan', {
       params: {
         per_page: 100
       }
     })
     if (response.data.data) {
-      tahunAjaranOptions.value = response.data.data.map(ta => ({
-        value: ta.id,
-        label: `${ta.tahun} - Semester ${ta.semester}`
+      jurusanOptions.value = response.data.data.map(j => ({
+        value: j.id,
+        label: j.nama_jurusan
       }))
-      tahunAjaranFilterOptions.value = [
-        { id: '', label: 'Semua Tahun Ajaran' },
-        ...response.data.data.map(ta => ({
-          id: ta.id,
-          label: `${ta.tahun} - Semester ${ta.semester}`
+      jurusanFilterOptions.value = [
+        { id: '', label: 'Semua Jurusan' },
+        ...response.data.data.map(j => ({
+          id: j.id,
+          label: j.nama_jurusan
         }))
       ]
     }
   } catch (error) {
-    console.error('Failed to fetch tahun ajaran:', error)
+    console.error('Failed to fetch jurusan:', error)
   }
 }
 
@@ -303,7 +310,7 @@ const resetForm = () => {
   form.pembimbing_sekolah_id = ''
   form.tanggal_mulai = ''
   form.tanggal_selesai = ''
-  form.tahun_ajaran_id = ''
+  form.jurusan_id = ''
   errors.value = {}
 }
 
@@ -323,7 +330,7 @@ const editPkl = async (item) => {
   form.pembimbing_sekolah_id = item.pembimbing_sekolah_id || item.pembimbing_sekolah?.id || ''
   form.tanggal_mulai = item.tanggal_mulai ? formatDateForInput(item.tanggal_mulai) : ''
   form.tanggal_selesai = item.tanggal_selesai ? formatDateForInput(item.tanggal_selesai) : ''
-  form.tahun_ajaran_id = item.tahun_ajaran_id
+  form.jurusan_id = item.jurusan_id || item.jurusan?.id || ''
   showForm.value = true
 }
 
@@ -352,7 +359,7 @@ const submitForm = async () => {
       pembimbing_sekolah_id: Number.parseInt(form.pembimbing_sekolah_id, 10),
       tanggal_mulai: form.tanggal_mulai,
       tanggal_selesai: form.tanggal_selesai,
-      tahun_ajaran_id: Number.parseInt(form.tahun_ajaran_id, 10)
+      jurusan_id: Number.parseInt(form.jurusan_id, 10)
     }
 
     await axios[method](url, formData)
@@ -454,7 +461,7 @@ const fetchGuru = async () => {
 // Lifecycle
 onMounted(() => {
   fetchPkl()
-  fetchTahunAjaran()
+  fetchJurusan()
   fetchGuru()
 })
 </script>

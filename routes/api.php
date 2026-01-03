@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\WaliKelas\NilaiKelasController;
 use App\Http\Controllers\Api\WaliKelas\KehadiranController;
 use App\Http\Controllers\Api\WaliKelas\CatatanAkademikController;
 use App\Http\Controllers\Api\WaliKelas\RaporController as WaliRaporController;
+use App\Http\Controllers\Api\WaliKelas\NilaiPklController;
 use App\Http\Controllers\Api\KepalaSekolah\RaporApprovalController;
 use App\Http\Controllers\Api\KepalaSekolah\RekapController;
 use App\Http\Controllers\Api\Siswa\RaporSiswaController;
@@ -168,6 +169,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('cek-penilaian/sas', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'sas']);
         Route::get('cek-penilaian/sas/{mataPelajaran}', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'sasDetail']);
         Route::get('cek-penilaian/p5', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'p5']);
+
+        // Nilai PKL
+        Route::get('nilai-pkl', [NilaiPklController::class, 'index']);
+        Route::post('nilai-pkl', [NilaiPklController::class, 'store']);
+        Route::get('nilai-pkl/pkl-by-jurusan', [NilaiPklController::class, 'getPklByJurusan']);
 
         // Rapor Management
         Route::get('rapor', [WaliRaporController::class, 'index']);

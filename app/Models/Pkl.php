@@ -23,7 +23,7 @@ class Pkl extends Model
         'pembimbing_sekolah_id',
         'tanggal_mulai',
         'tanggal_selesai',
-        'tahun_ajaran_id',
+        'jurusan_id',
     ];
 
     protected $casts = [
@@ -33,11 +33,11 @@ class Pkl extends Model
 
 
     /**
-     * Get the tahun ajaran.
+     * Get the jurusan.
      */
-    public function tahunAjaran()
+    public function jurusan()
     {
-        return $this->belongsTo(TahunAjaran::class);
+        return $this->belongsTo(Jurusan::class);
     }
 
     /**
