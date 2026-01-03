@@ -11,6 +11,17 @@
             Input dan kelola nilai ekstrakurikuler siswa
           </p>
         </div>
+        <div class="mt-4 md:mt-0 md:ml-4">
+          <button 
+            @click="openBatchAddModal" 
+            class="btn btn-primary"
+          >
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Tambah Nilai
+          </button>
+        </div>
       </div>
 
       <!-- Filters -->
@@ -55,17 +66,6 @@
               <p class="mt-1 text-sm text-gray-500">
                 Tahun Ajaran: {{ tahunAjaranAktifName }}
               </p>
-            </div>
-            <div class="flex items-center space-x-3">
-              <button 
-                @click="openBatchAddModal" 
-                class="btn btn-primary"
-              >
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
-                Tambah Nilai
-              </button>
             </div>
           </div>
         </div>
@@ -141,6 +141,18 @@
       <!-- Batch Add Nilai Modal -->
       <Modal :show="showBatchAddModal" @update:show="handleBatchModalUpdate" title="Tambah Nilai Ekstrakurikuler" size="lg">
         <form @submit.prevent="submitBatchForm" class="space-y-4">
+          <FormField
+            v-model="batchForm.ekstrakurikuler_id"
+            type="select"
+            label="Ekstrakurikuler"
+            placeholder="Pilih Ekstrakurikuler"
+            :options="ekstrakurikulerOptions"
+            option-value="id"
+            option-label="nama"
+            required
+            :error="errors.ekstrakurikuler_id"
+            @update:model-value="onBatchEkstrakurikulerChange"
+          />
           <FormField
             v-model="batchForm.kelas_id"
             type="select"
@@ -355,7 +367,8 @@ const filteredSiswaOptions = computed(() => {
   })
   
   // Filter out siswa yang sudah terdaftar di ekskul ini
-  if (selectedEkstrakurikuler.value && tahunAjaranAktif.value) {
+  const ekskulId = batchForm.value.ekstrakurikuler_id || selectedEkstrakurikuler.value
+  if (ekskulId && tahunAjaranAktif.value) {
     const registeredSiswaIds = nilaiData.value.map(n => n.siswa_id)
     filtered = filtered.filter(siswa => 
       !registeredSiswaIds.includes(siswa.id)
@@ -410,6 +423,18 @@ const fetchSiswa = async () => {
 const onBatchKelasChange = () => {
   // Reset siswa selection when kelas changes
   batchForm.value.siswa_ids = []
+}
+
+const onBatchEkstrakurikulerChange = () => {
+  // Reset siswa selection and kelas when ekstrakurikuler changes
+  batchForm.value.siswa_ids = []
+  batchForm.value.kelas_id = ''
+  // Reset keterangan if predikat is set
+  if (batchForm.value.predikat) {
+    const ekskul = ekstrakurikulerOptions.value.find(e => e.id == batchForm.value.ekstrakurikuler_id)
+    const namaEkskul = ekskul?.nama || ''
+    batchForm.value.keterangan = getKeteranganFromPredikat(batchForm.value.predikat, namaEkskul)
+  }
 }
 
 const updateSiswaOptions = () => {
@@ -485,7 +510,8 @@ const getPredikatDescription = (predikat) => {
 
 const updateKeteranganFromPredikat = () => {
   if (batchForm.value.predikat) {
-    const namaEkskul = selectedEkstrakurikulerName.value
+    const ekskul = ekstrakurikulerOptions.value.find(e => e.id == batchForm.value.ekstrakurikuler_id)
+    const namaEkskul = ekskul?.nama || selectedEkstrakurikulerName.value
     batchForm.value.keterangan = getKeteranganFromPredikat(batchForm.value.predikat, namaEkskul)
   }
 }
@@ -499,6 +525,7 @@ const updateEditKeteranganFromPredikat = () => {
 
 const openBatchAddModal = () => {
   batchForm.value = {
+    ekstrakurikuler_id: selectedEkstrakurikuler.value || '',
     kelas_id: '',
     siswa_ids: [],
     predikat: '',
@@ -517,6 +544,7 @@ const handleBatchModalUpdate = (value) => {
 const closeBatchModal = () => {
   showBatchAddModal.value = false
   batchForm.value = {
+    ekstrakurikuler_id: '',
     kelas_id: '',
     siswa_ids: [],
     predikat: '',
@@ -528,23 +556,27 @@ const closeBatchModal = () => {
 const submitBatchForm = async () => {
   errors.value = {}
   
+  if (!batchForm.value.ekstrakurikuler_id) {
+    errors.value.ekstrakurikuler_id = 'Pilih ekstrakurikuler terlebih dahulu'
+    toast.error('Pilih ekstrakurikuler terlebih dahulu')
+    return
+  }
+  
   if (!batchForm.value.kelas_id) {
+    errors.value.kelas_id = 'Pilih kelas terlebih dahulu'
     toast.error('Pilih kelas terlebih dahulu')
     return
   }
   
   if (!batchForm.value.siswa_ids || batchForm.value.siswa_ids.length === 0) {
+    errors.value.siswa_ids = 'Pilih minimal satu siswa'
     toast.error('Pilih minimal satu siswa')
     return
   }
   
   if (!batchForm.value.predikat) {
+    errors.value.predikat = 'Pilih predikat terlebih dahulu'
     toast.error('Pilih predikat terlebih dahulu')
-    return
-  }
-  
-  if (!selectedEkstrakurikuler.value) {
-    toast.error('Pilih ekstrakurikuler terlebih dahulu')
     return
   }
   
@@ -555,7 +587,8 @@ const submitBatchForm = async () => {
   
   // Ensure keterangan is set from predikat if not already set
   if (!batchForm.value.keterangan && batchForm.value.predikat) {
-    const namaEkskul = selectedEkstrakurikulerName.value
+    const ekskul = ekstrakurikulerOptions.value.find(e => e.id == batchForm.value.ekstrakurikuler_id)
+    const namaEkskul = ekskul?.nama || ''
     batchForm.value.keterangan = getKeteranganFromPredikat(batchForm.value.predikat, namaEkskul)
   }
   
@@ -563,7 +596,7 @@ const submitBatchForm = async () => {
     batchSubmitting.value = true
     const response = await axios.post('/guru/nilai-ekstrakurikuler/batch-store', {
       siswa_ids: batchForm.value.siswa_ids,
-      ekstrakurikuler_id: selectedEkstrakurikuler.value,
+      ekstrakurikuler_id: batchForm.value.ekstrakurikuler_id,
       tahun_ajaran_id: tahunAjaranAktif.value.id,
       predikat: batchForm.value.predikat,
       keterangan: batchForm.value.keterangan
@@ -571,7 +604,15 @@ const submitBatchForm = async () => {
     
     toast.success(response.data.message || 'Siswa berhasil ditambahkan')
     closeBatchModal()
-    await loadSiswa()
+    
+    // If the selected ekstrakurikuler matches, reload the data
+    if (selectedEkstrakurikuler.value == batchForm.value.ekstrakurikuler_id) {
+      await loadSiswa()
+    } else {
+      // If different, update selected ekstrakurikuler and reload
+      selectedEkstrakurikuler.value = batchForm.value.ekstrakurikuler_id
+      await loadSiswa()
+    }
   } catch (error) {
     if (error.response?.data?.errors) {
       errors.value = error.response.data.errors

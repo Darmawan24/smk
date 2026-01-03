@@ -270,7 +270,7 @@
           <p class="text-sm text-blue-700 whitespace-normal break-words">
             {{ getFormCPName() }}
           </p>
-          <p class="text-sm text-blue-700 mt-1">
+          <p v-if="!isSTSOrSAS" class="text-sm text-blue-700 mt-1">
             KKM: {{ formKkm }}
           </p>
         </div>
@@ -283,7 +283,7 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Siswa</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NIS</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Nilai</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+                <th v-if="!isSTSOrSAS" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -302,7 +302,7 @@
                     @input="updateDeskripsi(item)"
                   />
                 </td>
-                <td class="px-4 py-3">
+                <td v-if="!isSTSOrSAS" class="px-4 py-3">
                   <textarea
                     v-model="item.deskripsi"
                     rows="2"
@@ -407,10 +407,21 @@ const selectedMapelName = computed(() => {
 
 const selectedCPName = computed(() => {
   const cp = cpOptions.value.find(cp => cp.id == selectedCP.value)
-  return cp ? `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}` : ''
+  if (!cp) return ''
+  
+  // If STS or SAS, return label directly
+  if (cp.id === 'sts' || cp.id === 'sas') {
+    return cp.label
+  }
+  
+  return `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
 })
 
 const hasChanges = computed(() => changedItems.value.size > 0)
+
+const isSTSOrSAS = computed(() => {
+  return formCP.value === 'sts' || formCP.value === 'sas'
+})
 
 // Methods
 const fetchMapel = async () => {
@@ -484,8 +495,28 @@ const onSemesterChange = () => {
 }
 
 const fetchCP = async () => {
+  // Always create STS and SAS options first
+  const stsOption = {
+    id: 'sts',
+    kode_cp: 'STS',
+    deskripsi: '',
+    fase: '',
+    label: 'Nilai STS (Sumatif Tengah Semester)',
+    isSpecial: true
+  }
+  
+  const sasOption = {
+    id: 'sas',
+    kode_cp: 'SAS',
+    deskripsi: '',
+    fase: '',
+    label: 'Nilai SAS (Sumatif Akhir Semester)',
+    isSpecial: true
+  }
+  
   if (!selectedMapel.value || !selectedKelas.value || !selectedSemester.value) {
-    cpOptions.value = []
+    // Even if filters are not complete, still show STS and SAS
+    cpOptions.value = [stsOption, sasOption]
     return
   }
   
@@ -493,27 +524,28 @@ const fetchCP = async () => {
     // Get tingkat from selected kelas
     const kelas = kelasOptions.value.find(k => k.id == selectedKelas.value)
     if (!kelas || !kelas.tingkat) {
-      cpOptions.value = []
-      toast.warning('Kelas tidak memiliki tingkat')
+      // Even if kelas has no tingkat, still show STS and SAS
+      cpOptions.value = [stsOption, sasOption]
       return
     }
     
     const tingkat = kelas.tingkat.toString() // Ensure it's a string
     
+    // Update STS and SAS with tingkat
+    stsOption.fase = tingkat
+    sasOption.fase = tingkat
+    
     // Fetch all CP for the mata pelajaran
-    const response = await axios.get(`/guru/capaian-pembelajaran/mapel/${selectedMapel.value}`)
+    const response = await axios.get(`/wali-kelas/capaian-pembelajaran/mapel/${selectedMapel.value}`)
     const allCP = response.data.capaian_pembelajaran || []
     
-    // Filter CP by:
-    // 1. fase (tingkat) must match kelas tingkat
-    // 2. semester (filtered in frontend since semester is not stored in database)
+    // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
     const filteredCP = allCP.filter(cp => {
-      // Filter by tingkat (fase) - must match kelas tingkat
-      return cp.fase === tingkat
+      return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
     })
     
     // Map to options with label
-    cpOptions.value = filteredCP.map(cp => ({
+    const cpOptionsMapped = filteredCP.map(cp => ({
       id: cp.id,
       kode_cp: cp.kode_cp,
       deskripsi: cp.deskripsi,
@@ -521,12 +553,16 @@ const fetchCP = async () => {
       label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
     }))
     
-    if (cpOptions.value.length === 0) {
+    // Combine: STS, SAS, then other CP
+    cpOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
+    
+    if (cpOptions.value.length === 2) {
       toast.warning('Tidak ada Capaian Pembelajaran untuk tingkat dan semester yang dipilih')
     }
   } catch (error) {
     console.error('Failed to fetch capaian pembelajaran:', error)
-    cpOptions.value = []
+    // Even on error, still show STS and SAS
+    cpOptions.value = [stsOption, sasOption]
     toast.error('Gagal mengambil data Capaian Pembelajaran')
   }
 }
@@ -539,10 +575,30 @@ const loadNilai = async () => {
 
   try {
     loading.value = true
-    const response = await axios.get(`/guru/nilai/kelas/${selectedKelas.value}/mapel/${selectedMapel.value}`, {
+    
+    // For STS and SAS, we need to get or create special CP first
+    let capaianPembelajaranId = selectedCP.value
+    
+    if (selectedCP.value === 'sts' || selectedCP.value === 'sas') {
+      try {
+        const cpResponse = await axios.post('/wali-kelas/nilai/get-or-create-special-cp', {
+          mata_pelajaran_id: selectedMapel.value,
+          kode_cp: selectedCP.value.toUpperCase(),
+          semester: selectedSemester.value
+        })
+        capaianPembelajaranId = cpResponse.data.capaian_pembelajaran_id
+      } catch (error) {
+        console.error('Failed to get/create special CP:', error)
+        toast.error('Gagal membuat capaian pembelajaran khusus')
+        nilaiData.value = []
+        return
+      }
+    }
+    
+    const response = await axios.get(`/wali-kelas/nilai/kelas/${selectedKelas.value}/mapel/${selectedMapel.value}`, {
       params: {
         semester: selectedSemester.value,
-        capaian_pembelajaran_id: selectedCP.value
+        capaian_pembelajaran_id: capaianPembelajaranId
       }
     })
     // Handle different response formats
@@ -616,7 +672,7 @@ const batchUpdate = async () => {
         catatan: item.catatan || ''
       }))
 
-    await axios.post('/guru/nilai/batch-update', {
+    await axios.post('/wali-kelas/nilai/batch-update', {
       nilai: changedData
     })
 
@@ -657,7 +713,7 @@ const onFormMapelChange = async () => {
       } else {
         // If KKM not in mapelOptions, fetch mata pelajaran detail
         try {
-          const mapelResponse = await axios.get(`/guru/capaian-pembelajaran/mapel/${formMapel.value}`)
+          const mapelResponse = await axios.get(`/wali-kelas/capaian-pembelajaran/mapel/${formMapel.value}`)
           if (mapelResponse.data.mata_pelajaran && mapelResponse.data.mata_pelajaran.kkm !== undefined && mapelResponse.data.mata_pelajaran.kkm !== null) {
             formKkm.value = mapelResponse.data.mata_pelajaran.kkm
           } else {
@@ -686,31 +742,66 @@ const onFormKelasChange = () => {
 const onFormSemesterChange = async () => {
   formCP.value = ''
   
+  // Always create STS and SAS options first
+  const stsOption = {
+    id: 'sts',
+    kode_cp: 'STS',
+    deskripsi: '',
+    fase: '',
+    label: 'Nilai STS (Sumatif Tengah Semester)',
+    isSpecial: true
+  }
+  
+  const sasOption = {
+    id: 'sas',
+    kode_cp: 'SAS',
+    deskripsi: '',
+    fase: '',
+    label: 'Nilai SAS (Sumatif Akhir Semester)',
+    isSpecial: true
+  }
+  
   if (formKelas.value && formMapel.value && formSemester.value) {
     try {
       const kelas = formKelasOptions.value.find(k => k.id == formKelas.value)
       if (!kelas || !kelas.tingkat) {
-        formCPOptions.value = []
+        // Even if kelas has no tingkat, still show STS and SAS
+        formCPOptions.value = [stsOption, sasOption]
         return
       }
       
       const tingkat = kelas.tingkat.toString()
-      const response = await axios.get(`/guru/capaian-pembelajaran/mapel/${formMapel.value}`)
+      
+      // Update STS and SAS with tingkat
+      stsOption.fase = tingkat
+      sasOption.fase = tingkat
+      
+      const response = await axios.get(`/wali-kelas/capaian-pembelajaran/mapel/${formMapel.value}`)
       const allCP = response.data.capaian_pembelajaran || []
       
-      const filteredCP = allCP.filter(cp => cp.fase === tingkat)
+      // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
+      const filteredCP = allCP.filter(cp => {
+        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
+      })
       
-      formCPOptions.value = filteredCP.map(cp => ({
+      const cpOptionsMapped = filteredCP.map(cp => ({
         id: cp.id,
         kode_cp: cp.kode_cp,
         deskripsi: cp.deskripsi,
         fase: cp.fase,
         label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
       }))
+      
+      // Combine: STS, SAS, then other CP
+      formCPOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
     } catch (error) {
       console.error('Failed to fetch CP:', error)
-      formCPOptions.value = []
+      // Even on error, still show STS and SAS
+      formCPOptions.value = [stsOption, sasOption]
     }
+  } else {
+    // If filters are not complete, still show STS and SAS
+    formCPOptions.value = [stsOption, sasOption]
   }
 }
 
@@ -722,7 +813,7 @@ const handleStep1Next = async () => {
   
   try {
     // Fetch siswa dari kelas menggunakan endpoint guru
-    const response = await axios.get(`/guru/nilai/kelas/${formKelas.value}/siswa`)
+    const response = await axios.get(`/wali-kelas/nilai/kelas/${formKelas.value}/siswa`)
     const siswa = response.data.siswa || []
     
     // Initialize form nilai list
@@ -751,6 +842,13 @@ const updateDeskripsi = (item) => {
   }
   
   const cp = formCPOptions.value.find(cp => cp.id == formCP.value)
+  
+  // For STS and SAS, don't set deskripsi (empty string)
+  if (cp && cp.isSpecial) {
+    item.deskripsi = ''
+    return
+  }
+  
   const cpDeskripsi = cp ? cp.deskripsi : 'Capaian Pembelajaran'
   
   if (item.nilai < formKkm.value) {
@@ -763,11 +861,20 @@ const updateDeskripsi = (item) => {
 const getFormCPName = () => {
   const cp = formCPOptions.value.find(cp => cp.id == formCP.value)
   if (cp) {
+    // For STS and SAS, return label directly (already formatted)
+    if (cp.isSpecial) {
+      return cp.label
+    }
     return `${cp.kode_cp} - ${cp.deskripsi}`
   }
   // Fallback: try to get from editing nilai data
   if (editingNilaiData.value && editingNilaiData.value.capaian_pembelajaran) {
     const cpData = editingNilaiData.value.capaian_pembelajaran
+    if (cpData.kode_cp === 'STS') {
+      return 'Nilai STS (Sumatif Tengah Semester)'
+    } else if (cpData.kode_cp === 'SAS') {
+      return 'Nilai SAS (Sumatif Akhir Semester)'
+    }
     return `${cpData.kode_cp} - ${cpData.deskripsi}`
   }
   // Fallback: try to get from selected CP in main filter
@@ -810,7 +917,7 @@ const handleSubmitNilai = async () => {
     if (isEditingNilai.value && editingNilaiId.value) {
       // Update existing nilai
       const item = formNilaiList.value[0]
-      await axios.put(`/guru/nilai/${editingNilaiId.value}`, {
+      await axios.put(`/wali-kelas/nilai/${editingNilaiId.value}`, {
         nilai_sumatif_1: item.nilai,
         nilai_akhir: item.nilai,
         deskripsi: item.deskripsi
@@ -819,6 +926,25 @@ const handleSubmitNilai = async () => {
       toast.success('Nilai berhasil diperbarui')
     } else {
       // Create new nilai
+      // For STS and SAS, we need to get or create special CP
+      let capaianPembelajaranId = formCP.value
+      
+      if (formCP.value === 'sts' || formCP.value === 'sas') {
+        // Get or create special CP for STS/SAS
+        try {
+          const cpResponse = await axios.post('/wali-kelas/nilai/get-or-create-special-cp', {
+            mata_pelajaran_id: formMapel.value,
+            kode_cp: formCP.value.toUpperCase(),
+            semester: formSemester.value
+          })
+          capaianPembelajaranId = cpResponse.data.capaian_pembelajaran_id
+        } catch (error) {
+          console.error('Failed to get/create special CP:', error)
+          toast.error('Gagal membuat capaian pembelajaran khusus')
+          return
+        }
+      }
+      
       const nilaiData = formNilaiList.value
         .filter(item => item.nilai !== null && item.nilai !== '')
         .map(item => ({
@@ -826,14 +952,14 @@ const handleSubmitNilai = async () => {
           mata_pelajaran_id: formMapel.value,
           tahun_ajaran_id: tahunAjaranId,
           guru_id: guruId,
-          capaian_pembelajaran_id: formCP.value,
+          capaian_pembelajaran_id: capaianPembelajaranId,
           semester: formSemester.value,
           nilai: item.nilai,
           nilai_akhir: item.nilai, // Set nilai_akhir sama dengan nilai
-          deskripsi: item.deskripsi
+          deskripsi: item.deskripsi || '' // Empty for STS/SAS
         }))
       
-      await axios.post('/guru/nilai/store', {
+      await axios.post('/wali-kelas/nilai/store', {
         nilai: nilaiData
       })
       
@@ -901,16 +1027,43 @@ const editNilai = async (nilai) => {
   }
   
   // Load CP options
+  // Always create STS and SAS options first
+  const stsOption = {
+    id: 'sts',
+    kode_cp: 'STS',
+    deskripsi: '',
+    fase: '',
+    label: 'Nilai STS (Sumatif Tengah Semester)',
+    isSpecial: true
+  }
+  
+  const sasOption = {
+    id: 'sas',
+    kode_cp: 'SAS',
+    deskripsi: '',
+    fase: '',
+    label: 'Nilai SAS (Sumatif Akhir Semester)',
+    isSpecial: true
+  }
+  
   try {
     const kelas = formKelasOptions.value.find(k => k.id == formKelas.value)
     if (kelas && kelas.tingkat) {
       const tingkat = kelas.tingkat.toString()
-      const cpResponse = await axios.get(`/guru/capaian-pembelajaran/mapel/${formMapel.value}`)
+      
+      // Update STS and SAS with tingkat
+      stsOption.fase = tingkat
+      sasOption.fase = tingkat
+      
+      const cpResponse = await axios.get(`/wali-kelas/capaian-pembelajaran/mapel/${formMapel.value}`)
       const allCP = cpResponse.data.capaian_pembelajaran || []
       
-      const filteredCP = allCP.filter(cp => cp.fase === tingkat)
+      // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
+      const filteredCP = allCP.filter(cp => {
+        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
+      })
       
-      formCPOptions.value = filteredCP.map(cp => ({
+      const cpOptionsMapped = filteredCP.map(cp => ({
         id: cp.id,
         kode_cp: cp.kode_cp,
         deskripsi: cp.deskripsi,
@@ -918,12 +1071,32 @@ const editNilai = async (nilai) => {
         label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
       }))
       
+      formCPOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
+      
       // Set CP value from nilai data after options are loaded
+      // Check if nilai has STS or SAS CP
+      if (nilai.capaian_pembelajaran) {
+        const cpData = nilai.capaian_pembelajaran
+        if (cpData.kode_cp === 'STS') {
+          formCP.value = 'sts'
+        } else if (cpData.kode_cp === 'SAS') {
+          formCP.value = 'sas'
+        } else {
+          formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
+        }
+      } else {
+        formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
+      }
+    } else {
+      // Even if kelas has no tingkat, still show STS and SAS
+      formCPOptions.value = [stsOption, sasOption]
       formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
     }
   } catch (error) {
     console.error('Failed to fetch CP:', error)
-    formCPOptions.value = []
+    // Even on error, still show STS and SAS
+    formCPOptions.value = [stsOption, sasOption]
+    formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
   }
   
   // Set form nilai list with single item
@@ -952,7 +1125,7 @@ const deleteNilai = async () => {
   if (!deletingNilaiId.value) return
   
   try {
-    await axios.delete(`/guru/nilai/${deletingNilaiId.value}`)
+    await axios.delete(`/wali-kelas/nilai/${deletingNilaiId.value}`)
     toast.success('Nilai berhasil dihapus')
     showDeleteConfirm.value = false
     deletingNilaiId.value = null

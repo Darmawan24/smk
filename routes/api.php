@@ -149,6 +149,19 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Wali Kelas routes
     Route::middleware('role:wali_kelas')->prefix('wali-kelas')->group(function () {
+        // Capaian & Tujuan Pembelajaran
+        Route::get('capaian-pembelajaran/mapel/{mataPelajaran}', [CapaianPembelajaranController::class, 'byMapel']);
+        Route::apiResource('capaian-pembelajaran', CapaianPembelajaranController::class);
+        
+        // Nilai Management (same as guru)
+        Route::get('nilai/kelas/{kelas}/mapel/{mataPelajaran}', [GuruNilaiController::class, 'index']);
+        Route::get('nilai/kelas/{kelas}/siswa', [GuruNilaiController::class, 'getSiswa']);
+        Route::post('nilai/store', [GuruNilaiController::class, 'store']);
+        Route::post('nilai/get-or-create-special-cp', [GuruNilaiController::class, 'getOrCreateSpecialCP']);
+        Route::post('nilai/batch-update', [GuruNilaiController::class, 'batchUpdate']);
+        Route::put('nilai/{nilai}', [GuruNilaiController::class, 'update']);
+        Route::delete('nilai/{nilai}', [GuruNilaiController::class, 'destroy']);
+        
         // Nilai Kelas
         Route::get('nilai-kelas', [NilaiKelasController::class, 'index']);
         Route::get('nilai-kelas/rekap', [NilaiKelasController::class, 'rekap']);
@@ -175,6 +188,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('cek-penilaian/sas/{mataPelajaran}', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'sasDetail']);
         Route::get('cek-penilaian/p5', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'p5']);
 
+        // Nilai Ekstrakurikuler
+        Route::get('nilai-ekstrakurikuler/siswa', [NilaiEkstrakurikulerController::class, 'getSiswa']);
+        Route::get('nilai-ekstrakurikuler/my-ekstrakurikuler', [NilaiEkstrakurikulerController::class, 'myEkstrakurikuler']);
+        Route::post('nilai-ekstrakurikuler/batch-store', [NilaiEkstrakurikulerController::class, 'batchStore']);
+        
         // Nilai PKL
         Route::get('nilai-pkl', [NilaiPklController::class, 'index']);
         Route::post('nilai-pkl', [NilaiPklController::class, 'store']);
