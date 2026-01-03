@@ -34,7 +34,7 @@ class CatatanAkademikController extends Controller
         }
 
         // Get active classes where user is wali kelas
-        $kelas = $user->kelasAsWali;
+        $kelas = $user->kelasAsWali();
         
         if ($kelas->isEmpty()) {
             return response()->json([
@@ -84,7 +84,7 @@ class CatatanAkademikController extends Controller
         $siswa = Siswa::find($request->siswa_id);
 
         // Verify that user is wali kelas for this student's class
-        $isWaliKelas = $user->kelasAsWali->contains('id', $siswa->kelas_id);
+        $isWaliKelas = $user->kelasAsWali()->contains('id', $siswa->kelas_id);
         if (!$isWaliKelas) {
             return response()->json([
                 'message' => 'Anda bukan wali kelas untuk siswa ini',
@@ -205,7 +205,7 @@ class CatatanAkademikController extends Controller
         $user = Auth::user();
 
         // Verify that user is wali kelas for this student's class
-        $isWaliKelas = $user->kelasAsWali->contains('id', $siswa->kelas_id);
+        $isWaliKelas = $user->kelasAsWali()->contains('id', $siswa->kelas_id);
         if (!$isWaliKelas) {
             return response()->json([
                 'message' => 'Anda bukan wali kelas untuk siswa ini',

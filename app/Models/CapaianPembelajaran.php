@@ -21,6 +21,8 @@ class CapaianPembelajaran extends Model
         'kode_cp',
         'deskripsi',
         'fase',
+        'semester',
+        'tingkat',
         'elemen',
         'is_active',
     ];

@@ -121,6 +121,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('nilai/kelas/{kelas}/mapel/{mataPelajaran}', [GuruNilaiController::class, 'index']);
         Route::get('nilai/kelas/{kelas}/siswa', [GuruNilaiController::class, 'getSiswa']);
         Route::post('nilai/store', [GuruNilaiController::class, 'store']);
+        Route::post('nilai/get-or-create-special-cp', [GuruNilaiController::class, 'getOrCreateSpecialCP']);
         Route::post('nilai/batch-update', [GuruNilaiController::class, 'batchUpdate']);
         Route::put('nilai/{nilai}', [GuruNilaiController::class, 'update']);
         Route::delete('nilai/{nilai}', [GuruNilaiController::class, 'destroy']);
@@ -160,6 +161,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // Catatan Akademik
         Route::apiResource('catatan-akademik', CatatanAkademikController::class);
         Route::get('catatan-akademik/siswa/{siswa}', [CatatanAkademikController::class, 'bySiswa']);
+
+        // Cek Penilaian
+        Route::get('cek-penilaian/sts', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'sts']);
+        Route::get('cek-penilaian/sts/{mataPelajaran}', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'stsDetail']);
+        Route::get('cek-penilaian/sas', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'sas']);
+        Route::get('cek-penilaian/p5', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'p5']);
 
         // Rapor Management
         Route::get('rapor', [WaliRaporController::class, 'index']);

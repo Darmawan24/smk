@@ -107,20 +107,20 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">No</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">No</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Siswa</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">NIS</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Nilai</th>
-                <th v-if="!isSelectedSTSOrSAS" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Aksi</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NIS</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Nilai</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Aksi</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="(nilai, index) in nilaiData" :key="nilai.id || nilai.siswa_id" class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm text-center text-gray-500">{{ index + 1 }}</td>
+                <td class="px-4 py-3 text-sm text-center">{{ index + 1 }}</td>
                 <td class="px-4 py-3">
                   <div class="flex items-center">
-                    <div class="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                    <div class="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                       {{ nilai.siswa.nama_lengkap.charAt(0) }}
                     </div>
                     <div class="ml-3">
@@ -130,16 +130,16 @@
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-500">{{ nilai.siswa.nis }}</td>
                 <td class="px-4 py-3 text-center">
-                  <span class="text-sm font-medium text-gray-900">{{ nilai.nilai_akhir || '-' }}</span>
+                  <span class="text-sm font-medium">{{ nilai.nilai_akhir || '-' }}</span>
                 </td>
-                <td v-if="!isSelectedSTSOrSAS" class="px-4 py-3">
-                  <p class="text-sm text-gray-700 whitespace-normal break-words max-w-md">{{ nilai.deskripsi || '-' }}</p>
+                <td class="px-4 py-3">
+                  <p class="text-sm text-gray-700 whitespace-normal break-words" style="max-width: 400px;">{{ nilai.deskripsi || '-' }}</p>
                 </td>
-                <td class="px-4 py-3 text-center">
-                  <div class="flex items-center justify-center space-x-2">
+                <td class="px-4 py-3 text-sm">
+                  <div class="flex items-center space-x-2">
                     <button
                       @click="editNilai(nilai)"
-                      class="text-blue-600 hover:text-blue-900 transition-colors"
+                      class="text-blue-600 hover:text-blue-900"
                       title="Edit"
                     >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -148,7 +148,7 @@
                     </button>
                     <button
                       @click="confirmDeleteNilai(nilai)"
-                      class="text-red-600 hover:text-red-900 transition-colors"
+                      class="text-red-600 hover:text-red-900"
                       title="Hapus"
                     >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,7 +270,7 @@
           <p class="text-sm text-blue-700 whitespace-normal break-words">
             {{ getFormCPName() }}
           </p>
-          <p v-if="!isSTSOrSAS" class="text-sm text-blue-700 mt-1">
+          <p class="text-sm text-blue-700 mt-1">
             KKM: {{ formKkm }}
           </p>
         </div>
@@ -283,7 +283,7 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Siswa</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NIS</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Nilai</th>
-                <th v-if="!isSTSOrSAS" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -302,7 +302,7 @@
                     @input="updateDeskripsi(item)"
                   />
                 </td>
-                <td v-if="!isSTSOrSAS" class="px-4 py-3">
+                <td class="px-4 py-3">
                   <textarea
                     v-model="item.deskripsi"
                     rows="2"
@@ -407,25 +407,10 @@ const selectedMapelName = computed(() => {
 
 const selectedCPName = computed(() => {
   const cp = cpOptions.value.find(cp => cp.id == selectedCP.value)
-  if (!cp) return ''
-  
-  // If STS or SAS, return label directly
-  if (cp.id === 'sts' || cp.id === 'sas') {
-    return cp.label
-  }
-  
-  return `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
+  return cp ? `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}` : ''
 })
 
 const hasChanges = computed(() => changedItems.value.size > 0)
-
-const isSTSOrSAS = computed(() => {
-  return formCP.value === 'sts' || formCP.value === 'sas'
-})
-
-const isSelectedSTSOrSAS = computed(() => {
-  return selectedCP.value === 'sts' || selectedCP.value === 'sas'
-})
 
 // Methods
 const fetchMapel = async () => {
@@ -500,26 +485,7 @@ const onSemesterChange = () => {
 
 const fetchCP = async () => {
   if (!selectedMapel.value || !selectedKelas.value || !selectedSemester.value) {
-    // Even if filters are not complete, still show STS and SAS
-    const stsOption = {
-      id: 'sts',
-      kode_cp: 'STS',
-      deskripsi: '',
-      fase: '',
-      label: 'Nilai STS (Sumatif Tengah Semester)',
-      isSpecial: true
-    }
-    
-    const sasOption = {
-      id: 'sas',
-      kode_cp: 'SAS',
-      deskripsi: '',
-      fase: '',
-      label: 'Nilai SAS (Sumatif Akhir Semester)',
-      isSpecial: true
-    }
-    
-    cpOptions.value = [stsOption, sasOption]
+    cpOptions.value = []
     return
   }
   
@@ -527,68 +493,27 @@ const fetchCP = async () => {
     // Get tingkat from selected kelas
     const kelas = kelasOptions.value.find(k => k.id == selectedKelas.value)
     if (!kelas || !kelas.tingkat) {
-      // Even if kelas has no tingkat, still show STS and SAS
-      const stsOption = {
-        id: 'sts',
-        kode_cp: 'STS',
-        deskripsi: '',
-        fase: '',
-        label: 'Nilai STS (Sumatif Tengah Semester)',
-        isSpecial: true
-      }
-      
-      const sasOption = {
-        id: 'sas',
-        kode_cp: 'SAS',
-        deskripsi: '',
-        fase: '',
-        label: 'Nilai SAS (Sumatif Akhir Semester)',
-        isSpecial: true
-      }
-      
-      cpOptions.value = [stsOption, sasOption]
+      cpOptions.value = []
       toast.warning('Kelas tidak memiliki tingkat')
       return
     }
     
     const tingkat = kelas.tingkat.toString() // Ensure it's a string
     
-    // Always create STS and SAS options first
-    const stsOption = {
-      id: 'sts',
-      kode_cp: 'STS',
-      deskripsi: '',
-      fase: tingkat,
-      label: 'Nilai STS (Sumatif Tengah Semester)',
-      isSpecial: true
-    }
-    
-    const sasOption = {
-      id: 'sas',
-      kode_cp: 'SAS',
-      deskripsi: '',
-      fase: tingkat,
-      label: 'Nilai SAS (Sumatif Akhir Semester)',
-      isSpecial: true
-    }
-    
     // Fetch all CP for the mata pelajaran
-      const response = await axios.get(`/guru/capaian-pembelajaran/mapel/${selectedMapel.value}`)
-      const allCP = response.data.capaian_pembelajaran || []
-      
-      // Filter CP by:
-      // 1. fase (tingkat) must match kelas tingkat
-      // 2. is_active must be true
-      // 3. Exclude STS and SAS from database (we add them manually)
-      const filteredCP = allCP.filter(cp => {
-        // Filter by tingkat (fase) - must match kelas tingkat
-        // Only include active CP
-        // Also exclude STS and SAS if they exist in database
-        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
-      })
+    const response = await axios.get(`/guru/capaian-pembelajaran/mapel/${selectedMapel.value}`)
+    const allCP = response.data.capaian_pembelajaran || []
+    
+    // Filter CP by:
+    // 1. fase (tingkat) must match kelas tingkat
+    // 2. semester (filtered in frontend since semester is not stored in database)
+    const filteredCP = allCP.filter(cp => {
+      // Filter by tingkat (fase) - must match kelas tingkat
+      return cp.fase === tingkat
+    })
     
     // Map to options with label
-    const cpOptionsMapped = filteredCP.map(cp => ({
+    cpOptions.value = filteredCP.map(cp => ({
       id: cp.id,
       kode_cp: cp.kode_cp,
       deskripsi: cp.deskripsi,
@@ -596,37 +521,12 @@ const fetchCP = async () => {
       label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
     }))
     
-    // Combine: STS, SAS, then other CP
-    cpOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
-    
-    // Only show warning if there are no CP at all (including STS/SAS)
-    if (cpOptionsMapped.length === 0 && cpOptions.value.length === 2) {
-      // Only STS and SAS available, no other CP - this is fine, no warning needed
-    } else if (cpOptions.value.length === 0) {
+    if (cpOptions.value.length === 0) {
       toast.warning('Tidak ada Capaian Pembelajaran untuk tingkat dan semester yang dipilih')
     }
   } catch (error) {
     console.error('Failed to fetch capaian pembelajaran:', error)
-    // Even on error, still show STS and SAS
-    const stsOption = {
-      id: 'sts',
-      kode_cp: 'STS',
-      deskripsi: '',
-      fase: '',
-      label: 'Nilai STS (Sumatif Tengah Semester)',
-      isSpecial: true
-    }
-    
-    const sasOption = {
-      id: 'sas',
-      kode_cp: 'SAS',
-      deskripsi: '',
-      fase: '',
-      label: 'Nilai SAS (Sumatif Akhir Semester)',
-      isSpecial: true
-    }
-    
-    cpOptions.value = [stsOption, sasOption]
+    cpOptions.value = []
     toast.error('Gagal mengambil data Capaian Pembelajaran')
   }
 }
@@ -639,30 +539,10 @@ const loadNilai = async () => {
 
   try {
     loading.value = true
-    
-    // For STS and SAS, get or create special CP first
-    let capaianPembelajaranId = selectedCP.value
-    
-    if (selectedCP.value === 'sts' || selectedCP.value === 'sas') {
-      try {
-        const cpResponse = await axios.post('/guru/nilai/get-or-create-special-cp', {
-          mata_pelajaran_id: selectedMapel.value,
-          kode_cp: selectedCP.value.toUpperCase(),
-          semester: selectedSemester.value
-        })
-        capaianPembelajaranId = cpResponse.data.capaian_pembelajaran_id
-      } catch (error) {
-        console.error('Failed to get/create special CP:', error)
-        toast.error('Gagal mengambil capaian pembelajaran khusus')
-        nilaiData.value = []
-        return
-      }
-    }
-    
     const response = await axios.get(`/guru/nilai/kelas/${selectedKelas.value}/mapel/${selectedMapel.value}`, {
       params: {
         semester: selectedSemester.value,
-        capaian_pembelajaran_id: capaianPembelajaranId
+        capaian_pembelajaran_id: selectedCP.value
       }
     })
     // Handle different response formats
@@ -806,66 +686,31 @@ const onFormKelasChange = () => {
 const onFormSemesterChange = async () => {
   formCP.value = ''
   
-  // Always create STS and SAS options first
-  const stsOption = {
-    id: 'sts',
-    kode_cp: 'STS',
-    deskripsi: '',
-    fase: '',
-    label: 'Nilai STS (Sumatif Tengah Semester)',
-    isSpecial: true
-  }
-  
-  const sasOption = {
-    id: 'sas',
-    kode_cp: 'SAS',
-    deskripsi: '',
-    fase: '',
-    label: 'Nilai SAS (Sumatif Akhir Semester)',
-    isSpecial: true
-  }
-  
   if (formKelas.value && formMapel.value && formSemester.value) {
     try {
       const kelas = formKelasOptions.value.find(k => k.id == formKelas.value)
       if (!kelas || !kelas.tingkat) {
-        // Even if kelas has no tingkat, still show STS and SAS
-        formCPOptions.value = [stsOption, sasOption]
+        formCPOptions.value = []
         return
       }
       
       const tingkat = kelas.tingkat.toString()
-      
-      // Update STS and SAS with tingkat
-      stsOption.fase = tingkat
-      sasOption.fase = tingkat
-      
       const response = await axios.get(`/guru/capaian-pembelajaran/mapel/${formMapel.value}`)
       const allCP = response.data.capaian_pembelajaran || []
       
-      // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
-      const filteredCP = allCP.filter(cp => {
-        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
-      })
+      const filteredCP = allCP.filter(cp => cp.fase === tingkat)
       
-      const cpOptionsMapped = filteredCP.map(cp => ({
+      formCPOptions.value = filteredCP.map(cp => ({
         id: cp.id,
         kode_cp: cp.kode_cp,
         deskripsi: cp.deskripsi,
         fase: cp.fase,
         label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
       }))
-      
-      // Combine: STS, SAS, then other CP
-      formCPOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
     } catch (error) {
       console.error('Failed to fetch CP:', error)
-      // Even on error, still show STS and SAS
-      formCPOptions.value = [stsOption, sasOption]
+      formCPOptions.value = []
     }
-  } else {
-    // If filters are not complete, still show STS and SAS
-    formCPOptions.value = [stsOption, sasOption]
   }
 }
 
@@ -906,13 +751,6 @@ const updateDeskripsi = (item) => {
   }
   
   const cp = formCPOptions.value.find(cp => cp.id == formCP.value)
-  
-  // Jika STS atau SAS, tidak perlu generate deskripsi
-  if (cp && (cp.id === 'sts' || cp.id === 'sas')) {
-    item.deskripsi = ''
-    return
-  }
-  
   const cpDeskripsi = cp ? cp.deskripsi : 'Capaian Pembelajaran'
   
   if (item.nilai < formKkm.value) {
@@ -925,10 +763,6 @@ const updateDeskripsi = (item) => {
 const getFormCPName = () => {
   const cp = formCPOptions.value.find(cp => cp.id == formCP.value)
   if (cp) {
-    // Jika STS atau SAS, hanya tampilkan label tanpa deskripsi
-    if (cp.id === 'sts' || cp.id === 'sas') {
-      return cp.label
-    }
     return `${cp.kode_cp} - ${cp.deskripsi}`
   }
   // Fallback: try to get from editing nilai data
@@ -985,25 +819,6 @@ const handleSubmitNilai = async () => {
       toast.success('Nilai berhasil diperbarui')
     } else {
       // Create new nilai
-      // For STS and SAS, we need to get or create special CP
-      let capaianPembelajaranId = formCP.value
-      
-      if (formCP.value === 'sts' || formCP.value === 'sas') {
-        // Get or create special CP for STS/SAS
-        try {
-          const cpResponse = await axios.post('/guru/nilai/get-or-create-special-cp', {
-            mata_pelajaran_id: formMapel.value,
-            kode_cp: formCP.value.toUpperCase(),
-            semester: formSemester.value
-          })
-          capaianPembelajaranId = cpResponse.data.capaian_pembelajaran_id
-        } catch (error) {
-          console.error('Failed to get/create special CP:', error)
-          toast.error('Gagal membuat capaian pembelajaran khusus')
-          return
-        }
-      }
-      
       const nilaiData = formNilaiList.value
         .filter(item => item.nilai !== null && item.nilai !== '')
         .map(item => ({
@@ -1011,11 +826,11 @@ const handleSubmitNilai = async () => {
           mata_pelajaran_id: formMapel.value,
           tahun_ajaran_id: tahunAjaranId,
           guru_id: guruId,
-          capaian_pembelajaran_id: capaianPembelajaranId,
+          capaian_pembelajaran_id: formCP.value,
           semester: formSemester.value,
           nilai: item.nilai,
           nilai_akhir: item.nilai, // Set nilai_akhir sama dengan nilai
-          deskripsi: item.deskripsi || '' // Empty for STS/SAS
+          deskripsi: item.deskripsi
         }))
       
       await axios.post('/guru/nilai/store', {
@@ -1086,43 +901,16 @@ const editNilai = async (nilai) => {
   }
   
   // Load CP options
-  // Always create STS and SAS options first
-  const stsOption = {
-    id: 'sts',
-    kode_cp: 'STS',
-    deskripsi: '',
-    fase: '',
-    label: 'Nilai STS (Sumatif Tengah Semester)',
-    isSpecial: true
-  }
-  
-  const sasOption = {
-    id: 'sas',
-    kode_cp: 'SAS',
-    deskripsi: '',
-    fase: '',
-    label: 'Nilai SAS (Sumatif Akhir Semester)',
-    isSpecial: true
-  }
-  
   try {
     const kelas = formKelasOptions.value.find(k => k.id == formKelas.value)
     if (kelas && kelas.tingkat) {
       const tingkat = kelas.tingkat.toString()
-      
-      // Update STS and SAS with tingkat
-      stsOption.fase = tingkat
-      sasOption.fase = tingkat
-      
       const cpResponse = await axios.get(`/guru/capaian-pembelajaran/mapel/${formMapel.value}`)
       const allCP = cpResponse.data.capaian_pembelajaran || []
       
-      // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
-      const filteredCP = allCP.filter(cp => {
-        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
-      })
+      const filteredCP = allCP.filter(cp => cp.fase === tingkat)
       
-      const cpOptionsMapped = filteredCP.map(cp => ({
+      formCPOptions.value = filteredCP.map(cp => ({
         id: cp.id,
         kode_cp: cp.kode_cp,
         deskripsi: cp.deskripsi,
@@ -1130,58 +918,12 @@ const editNilai = async (nilai) => {
         label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
       }))
       
-      formCPOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
-      
       // Set CP value from nilai data after options are loaded
-      // Check if nilai has STS or SAS CP
-      if (nilai.capaian_pembelajaran) {
-        const cpData = nilai.capaian_pembelajaran
-        if (cpData.kode_cp === 'STS') {
-          formCP.value = 'sts'
-        } else if (cpData.kode_cp === 'SAS') {
-          formCP.value = 'sas'
-        } else {
-          formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
-        }
-      } else {
-        formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
-      }
-    } else {
-      // Even if kelas has no tingkat, still show STS and SAS
-      formCPOptions.value = [stsOption, sasOption]
-      
-      // Set CP value from nilai data
-      if (nilai.capaian_pembelajaran) {
-        const cpData = nilai.capaian_pembelajaran
-        if (cpData.kode_cp === 'STS') {
-          formCP.value = 'sts'
-        } else if (cpData.kode_cp === 'SAS') {
-          formCP.value = 'sas'
-        } else {
-          formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
-        }
-      } else {
-        formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
-      }
+      formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
     }
   } catch (error) {
     console.error('Failed to fetch CP:', error)
-    // Even on error, still show STS and SAS
-    formCPOptions.value = [stsOption, sasOption]
-    
-    // Set CP value from nilai data
-    if (nilai.capaian_pembelajaran) {
-      const cpData = nilai.capaian_pembelajaran
-      if (cpData.kode_cp === 'STS') {
-        formCP.value = 'sts'
-      } else if (cpData.kode_cp === 'SAS') {
-        formCP.value = 'sas'
-      } else {
-        formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
-      }
-    } else {
-      formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
-    }
+    formCPOptions.value = []
   }
   
   // Set form nilai list with single item

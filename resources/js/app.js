@@ -47,6 +47,18 @@ import NilaiKelasIndex from './pages/wali-kelas/nilai-kelas/Index.vue'
 import KehadiranIndex from './pages/wali-kelas/kehadiran/Index.vue'
 import RaporIndex from './pages/wali-kelas/rapor/Index.vue'
 import CekPenilaianIndex from './pages/wali-kelas/cek-penilaian/Index.vue'
+import CapaianPembelajaranWaliKelasIndex from './pages/wali-kelas/capaian-pembelajaran/Index.vue'
+import NilaiSumatifWaliKelasIndex from './pages/wali-kelas/nilai-sumatif/Index.vue'
+import NilaiEkstrakurikulerWaliKelasIndex from './pages/wali-kelas/nilai-ekstrakurikuler/Index.vue'
+import NilaiPklWaliKelasIndex from './pages/wali-kelas/nilai-pkl/Index.vue'
+import KetidakhadiranWaliKelasIndex from './pages/wali-kelas/ketidakhadiran/Index.vue'
+import CekPenilaianStsIndex from './pages/wali-kelas/cek-penilaian/sts/Index.vue'
+import CekPenilaianSasIndex from './pages/wali-kelas/cek-penilaian/sas/Index.vue'
+import CekPenilaianP5Index from './pages/wali-kelas/cek-penilaian/p5/Index.vue'
+import CetakRaporBelajarIndex from './pages/wali-kelas/cetak-rapor/belajar/Index.vue'
+import CetakRaporP5WaliKelasIndex from './pages/wali-kelas/cetak-rapor/p5/Index.vue'
+import CetakRaporLeggerWaliKelasIndex from './pages/wali-kelas/cetak-rapor/legger/Index.vue'
+import CetakRaporProfilSiswaIndex from './pages/wali-kelas/cetak-rapor/profil-siswa/Index.vue'
 
 // Kepala Sekolah pages
 import KepalaSekolahDashboard from './pages/kepala-sekolah/Dashboard.vue'
@@ -257,6 +269,21 @@ const routes = [
         component: WaliKelasDashboard
       },
       {
+        path: 'capaian-pembelajaran',
+        name: 'wali-kelas.capaian-pembelajaran.index',
+        component: CapaianPembelajaranWaliKelasIndex
+      },
+      {
+        path: 'nilai-sumatif',
+        name: 'wali-kelas.nilai-sumatif.index',
+        component: NilaiSumatifWaliKelasIndex
+      },
+      {
+        path: 'nilai-ekstrakurikuler',
+        name: 'wali-kelas.nilai-ekstrakurikuler.index',
+        component: NilaiEkstrakurikulerWaliKelasIndex
+      },
+      {
         path: 'nilai-kelas',
         name: 'wali-kelas.nilai-kelas.index',
         component: NilaiKelasIndex
@@ -267,6 +294,16 @@ const routes = [
         component: KehadiranIndex
       },
       {
+        path: 'ketidakhadiran',
+        name: 'wali-kelas.ketidakhadiran.index',
+        component: KetidakhadiranWaliKelasIndex
+      },
+      {
+        path: 'nilai-pkl',
+        name: 'wali-kelas.nilai-pkl.index',
+        component: NilaiPklWaliKelasIndex
+      },
+      {
         path: 'rapor',
         name: 'wali-kelas.rapor.index',
         component: RaporIndex
@@ -275,6 +312,41 @@ const routes = [
         path: 'cek-penilaian',
         name: 'wali-kelas.cek-penilaian.index',
         component: CekPenilaianIndex
+      },
+      {
+        path: 'cek-penilaian/sts',
+        name: 'wali-kelas.cek-penilaian.sts',
+        component: CekPenilaianStsIndex
+      },
+      {
+        path: 'cek-penilaian/sas',
+        name: 'wali-kelas.cek-penilaian.sas',
+        component: CekPenilaianSasIndex
+      },
+      {
+        path: 'cek-penilaian/p5',
+        name: 'wali-kelas.cek-penilaian.p5',
+        component: CekPenilaianP5Index
+      },
+      {
+        path: 'cetak-rapor/belajar',
+        name: 'wali-kelas.cetak-rapor.belajar',
+        component: CetakRaporBelajarIndex
+      },
+      {
+        path: 'cetak-rapor/p5',
+        name: 'wali-kelas.cetak-rapor.p5',
+        component: CetakRaporP5WaliKelasIndex
+      },
+      {
+        path: 'cetak-rapor/legger',
+        name: 'wali-kelas.cetak-rapor.legger',
+        component: CetakRaporLeggerWaliKelasIndex
+      },
+      {
+        path: 'cetak-rapor/profil-siswa',
+        name: 'wali-kelas.cetak-rapor.profil-siswa',
+        component: CetakRaporProfilSiswaIndex
       }
     ]
   },

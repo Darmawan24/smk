@@ -80,7 +80,7 @@ class User extends Authenticatable
             return collect();
         }
         
-        return $this->guru->waliKelasAktif()->with('kelas')->get()->pluck('kelas');
+        return $this->guru->waliKelasAktif()->with('kelas.jurusan')->get()->pluck('kelas');
     }
 
     /**

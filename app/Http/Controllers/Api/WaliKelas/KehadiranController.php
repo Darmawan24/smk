@@ -36,7 +36,7 @@ class KehadiranController extends Controller
         }
 
         // Get active classes where user is wali kelas
-        $kelas = $user->kelasAsWali;
+        $kelas = $user->kelasAsWali();
         
         if ($kelas->isEmpty()) {
             return response()->json([
@@ -113,7 +113,7 @@ class KehadiranController extends Controller
                 $kehadiran = Kehadiran::find($kehadiranData['id']);
 
                 // Verify that this kehadiran belongs to a student in wali kelas's class
-                $isWaliKelas = $user->kelasAsWali->contains('id', $kehadiran->siswa->kelas_id);
+                $isWaliKelas = $user->kelasAsWali()->contains('id', $kehadiran->siswa->kelas_id);
                 if (!$isWaliKelas) {
                     continue;
                 }

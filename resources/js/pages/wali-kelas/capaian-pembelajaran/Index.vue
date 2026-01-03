@@ -452,7 +452,6 @@ const cpForm = ref({
   deskripsi: '',
   fase: '',
   semester: '1', // Default to semester 1
-  tingkat: '', // Will be set from fase
   is_active: true
 })
 
@@ -551,7 +550,6 @@ const editCP = (cp) => {
     deskripsi: cp.deskripsi,
     fase: cp.fase,
     semester: cp.semester || '1', // Default to semester 1 if not set
-    tingkat: cp.tingkat || cp.fase, // Use tingkat if available, otherwise use fase
     is_active: cp.is_active !== undefined ? cp.is_active : true
   }
   isEditing.value = true
@@ -596,11 +594,11 @@ const submitCPForm = async () => {
   try {
     submitting.value = true
     // Ensure mata_pelajaran_id is set from selectedMapel
-    // Set tingkat from fase if not explicitly set
+    // Remove semester from formData as it's not stored in database
+    const { semester, ...formDataWithoutSemester } = cpForm.value
     const formData = {
-      ...cpForm.value,
-      mata_pelajaran_id: selectedMapel.value,
-      tingkat: cpForm.value.tingkat || cpForm.value.fase // Use tingkat if set, otherwise use fase
+      ...formDataWithoutSemester,
+      mata_pelajaran_id: selectedMapel.value
     }
     
     if (isEditing.value && editingCP.value) {
@@ -611,35 +609,11 @@ const submitCPForm = async () => {
       toast.success('CP berhasil diperbarui')
     } else {
       // For new CP, we need to generate kode_cp and set default elemen
-      // Get all existing CPs (including inactive) to find available kode_cp
-      const existingCPs = await axios.get(`/guru/capaian-pembelajaran`, {
-        params: {
-          mata_pelajaran_id: selectedMapel.value,
-          per_page: 1000 // Get all CPs
-        }
-      })
-      const existingCPList = existingCPs.data.data || existingCPs.data || []
-      
-      // Extract existing kode_cp numbers
-      const existingCodes = existingCPList
-        .map(cp => {
-          const match = cp.kode_cp?.match(/^CP-(\d+)$/i)
-          return match ? parseInt(match[1]) : null
-        })
-        .filter(num => num !== null)
-        .sort((a, b) => a - b)
-      
-      // Find the first available number
-      let nextNumber = 1
-      for (const code of existingCodes) {
-        if (code === nextNumber) {
-          nextNumber++
-        } else {
-          break
-        }
-      }
-      
-      formData.kode_cp = `CP-${nextNumber}`
+      // Get existing CPs to determine next kode_cp
+      const existingCPs = await axios.get(`/guru/capaian-pembelajaran/mapel/${selectedMapel.value}`)
+      const existingCPList = existingCPs.data.capaian_pembelajaran || []
+      const existingCPCount = existingCPList.length
+      formData.kode_cp = `CP-${existingCPCount + 1}`
       formData.elemen = 'pemahaman' // Default elemen
       
       await axios.post('/guru/capaian-pembelajaran', formData)
@@ -667,7 +641,6 @@ const closeCPForm = () => {
     deskripsi: '',
     fase: '',
     semester: '1', // Default to semester 1
-    tingkat: '', // Will be set from fase
     is_active: true
   }
   errors.value = {}

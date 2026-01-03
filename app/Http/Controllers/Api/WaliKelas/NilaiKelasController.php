@@ -35,7 +35,7 @@ class NilaiKelasController extends Controller
         }
 
         // Get active classes where user is wali kelas
-        $kelas = $user->kelasAsWali;
+        $kelas = $user->kelasAsWali();
         
         if ($kelas->isEmpty()) {
             return response()->json([
@@ -103,7 +103,7 @@ class NilaiKelasController extends Controller
         $kelas = Kelas::find($kelasId);
         
         // Verify that user is wali kelas for this class
-        $isWaliKelas = $user->kelasAsWali->contains('id', $kelasId);
+        $isWaliKelas = $user->kelasAsWali()->contains('id', $kelasId);
         if (!$isWaliKelas) {
             return response()->json([
                 'message' => 'Anda bukan wali kelas untuk kelas ini',
@@ -147,7 +147,7 @@ class NilaiKelasController extends Controller
         $user = Auth::user();
         
         // Verify that user is wali kelas for this student's class
-        $isWaliKelas = $user->kelasAsWali->contains('id', $siswa->kelas_id);
+        $isWaliKelas = $user->kelasAsWali()->contains('id', $siswa->kelas_id);
         if (!$isWaliKelas) {
             return response()->json([
                 'message' => 'Anda bukan wali kelas untuk siswa ini',

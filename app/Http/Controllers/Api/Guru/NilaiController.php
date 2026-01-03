@@ -7,6 +7,7 @@ use App\Models\Nilai;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
 use App\Models\TahunAjaran;
+use App\Models\CapaianPembelajaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -272,6 +273,70 @@ class NilaiController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Get or create special CP for STS/SAS.
+     *
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getOrCreateSpecialCP(Request $request)
+    {
+        $request->validate([
+            'mata_pelajaran_id' => 'required|exists:mata_pelajaran,id',
+            'kode_cp' => 'required|string|in:STS,SAS',
+            'semester' => 'required|string|in:1,2',
+        ]);
+
+        $user = Auth::user();
+        $guru = $user->guru;
+
+        if (!$guru) {
+            return response()->json([
+                'message' => 'Guru tidak ditemukan',
+            ], 404);
+        }
+
+        // Verify mata pelajaran is taught by this guru
+        $mataPelajaran = MataPelajaran::where('id', $request->mata_pelajaran_id)
+            ->where('guru_id', $guru->id)
+            ->first();
+
+        if (!$mataPelajaran) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses untuk mata pelajaran ini',
+            ], 403);
+        }
+
+        // For STS/SAS, we use fase '10' as default
+        $fase = '10';
+
+        // Check if CP already exists
+        $cp = CapaianPembelajaran::where('mata_pelajaran_id', $request->mata_pelajaran_id)
+            ->where('kode_cp', $request->kode_cp)
+            ->first();
+
+        if (!$cp) {
+            // Create new CP for STS/SAS
+            $cp = CapaianPembelajaran::create([
+                'mata_pelajaran_id' => $request->mata_pelajaran_id,
+                'kode_cp' => $request->kode_cp,
+                'deskripsi' => $request->kode_cp === 'STS' 
+                    ? 'Nilai Sumatif Tengah Semester' 
+                    : 'Nilai Sumatif Akhir Semester',
+                'fase' => $fase,
+                'semester' => $request->semester,
+                'tingkat' => $fase, // Set tingkat same as fase
+                'elemen' => 'pemahaman',
+                'is_active' => true,
+            ]);
+        }
+
+        return response()->json([
+            'capaian_pembelajaran_id' => $cp->id,
+            'capaian_pembelajaran' => $cp,
+        ]);
     }
 
     /**

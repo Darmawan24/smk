@@ -75,18 +75,25 @@ class CapaianPembelajaranController extends Controller
             'kode_cp' => 'required|string|max:50',
             'deskripsi' => 'required|string|max:200',
             'fase' => 'required|string|in:10,11,12',
+            'semester' => 'nullable|string|in:1,2',
+            'tingkat' => 'nullable|string',
             'elemen' => 'required|string|in:pemahaman,keterampilan,sikap',
             'is_active' => 'sometimes|boolean',
         ]);
 
-        $cp = CapaianPembelajaran::create($request->only([
-            'mata_pelajaran_id',
-            'kode_cp',
-            'deskripsi',
-            'fase',
-            'elemen',
-            'is_active',
-        ]));
+        // Set tingkat from fase if not provided
+        $tingkat = $request->tingkat ?? $request->fase;
+
+        $cp = CapaianPembelajaran::create([
+            'mata_pelajaran_id' => $request->mata_pelajaran_id,
+            'kode_cp' => $request->kode_cp,
+            'deskripsi' => $request->deskripsi,
+            'fase' => $request->fase,
+            'semester' => $request->semester,
+            'tingkat' => $tingkat,
+            'elemen' => $request->elemen,
+            'is_active' => $request->is_active ?? true,
+        ]);
 
         return response()->json([
             'message' => 'Capaian Pembelajaran berhasil ditambahkan',
@@ -120,17 +127,29 @@ class CapaianPembelajaranController extends Controller
             'kode_cp' => 'sometimes|required|string|max:50',
             'deskripsi' => 'sometimes|required|string|max:200',
             'fase' => 'sometimes|required|string|in:10,11,12',
+            'semester' => 'nullable|string|in:1,2',
+            'tingkat' => 'nullable|string',
             'elemen' => 'sometimes|required|string|in:pemahaman,keterampilan,sikap',
             'is_active' => 'sometimes|boolean',
         ]);
 
-        $capaianPembelajaran->update($request->only([
+        $updateData = $request->only([
             'kode_cp',
             'deskripsi',
             'fase',
+            'semester',
             'elemen',
             'is_active',
-        ]));
+        ]);
+
+        // Set tingkat from fase if not provided
+        if ($request->has('tingkat')) {
+            $updateData['tingkat'] = $request->tingkat;
+        } elseif ($request->has('fase')) {
+            $updateData['tingkat'] = $request->fase;
+        }
+
+        $capaianPembelajaran->update($updateData);
 
         return response()->json([
             'message' => 'Capaian Pembelajaran berhasil diperbarui',
