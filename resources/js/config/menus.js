@@ -56,6 +56,14 @@ export const menuConfig = {
       ]
     },
     {
+      type: 'section',
+      title: 'Wali Kelas',
+      items: [
+        { label: 'Nilai PKL', to: '/wali-kelas/nilai-pkl', icon: 'briefcase' },
+        { label: 'Ketidakhadiran', to: '/wali-kelas/ketidakhadiran', icon: 'x-circle' }
+      ]
+    },
+    {
       type: 'dropdown',
       title: 'Cek Penilaian',
       icon: 'chart-bar',
@@ -64,14 +72,6 @@ export const menuConfig = {
         { label: 'Nilai STS', to: '/wali-kelas/cek-penilaian/sts', icon: 'check' },
         { label: 'Nilai SAS', to: '/wali-kelas/cek-penilaian/sas', icon: 'check' },
         { label: 'Nilai P5', to: '/wali-kelas/cek-penilaian/p5', icon: 'check' }
-      ]
-    },
-    {
-      type: 'section',
-      title: 'Wali Kelas',
-      items: [
-        { label: 'Nilai PKL', to: '/wali-kelas/nilai-pkl', icon: 'briefcase' },
-        { label: 'Ketidakhadiran', to: '/wali-kelas/ketidakhadiran', icon: 'x-circle' }
       ]
     },
     {

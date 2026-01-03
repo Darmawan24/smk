@@ -159,6 +159,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('kehadiran/batch-update', [KehadiranController::class, 'batchUpdate']);
         Route::put('kehadiran/{kehadiran}', [KehadiranController::class, 'update']);
 
+        // Ketidakhadiran
+        Route::get('ketidakhadiran', [KehadiranController::class, 'index']);
+        Route::post('ketidakhadiran/batch-update', [KehadiranController::class, 'batchUpdate']);
+        Route::put('ketidakhadiran/{kehadiran}', [KehadiranController::class, 'update']);
+
         // Catatan Akademik
         Route::apiResource('catatan-akademik', CatatanAkademikController::class);
         Route::get('catatan-akademik/siswa/{siswa}', [CatatanAkademikController::class, 'bySiswa']);

@@ -53,12 +53,13 @@ class KehadiranController extends Controller
         }
 
         $kelasId = $request->get('kelas_id');
+        $filteredKelas = $kelas;
         if ($kelasId) {
-            $kelas = $kelas->where('id', $kelasId);
+            $filteredKelas = $kelas->where('id', $kelasId);
         }
 
         $siswaIds = collect();
-        foreach ($kelas as $k) {
+        foreach ($filteredKelas as $k) {
             $siswaIds = $siswaIds->merge($k->siswa()->where('status', 'aktif')->pluck('id'));
         }
 
@@ -82,8 +83,22 @@ class KehadiranController extends Controller
             ])->load(['siswa.user', 'siswa.kelas.jurusan', 'tahunAjaran']));
         }
 
+        // Format kelas data with jurusan (already loaded from kelasAsWali)
+        $kelasData = $filteredKelas->map(function($k) {
+            return [
+                'id' => $k->id,
+                'nama_kelas' => $k->nama_kelas,
+                'tingkat' => $k->tingkat,
+                'jurusan_id' => $k->jurusan_id,
+                'jurusan' => $k->jurusan ? [
+                    'id' => $k->jurusan->id,
+                    'nama_jurusan' => $k->jurusan->nama_jurusan,
+                ] : null,
+            ];
+        })->values();
+
         return response()->json([
-            'kelas' => $kelas->load('jurusan'),
+            'kelas' => $kelasData,
             'tahun_ajaran' => TahunAjaran::find($tahunAjaranId),
             'kehadiran' => $kehadiran->sortBy('siswa.nama_lengkap')->values(),
         ]);
