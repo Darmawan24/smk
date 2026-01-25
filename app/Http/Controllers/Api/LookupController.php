@@ -105,7 +105,7 @@ class LookupController extends Controller
      */
     public function tahunAjaran()
     {
-        $tahunAjaran = TahunAjaran::select('id', 'tahun', 'semester', 'is_active')->get();
+        $tahunAjaran = TahunAjaran::select('id', 'tahun', 'is_active')->get();
         return response()->json($tahunAjaran);
     }
 

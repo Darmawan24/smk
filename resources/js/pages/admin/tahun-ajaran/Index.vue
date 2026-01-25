@@ -3,7 +3,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <DataTable
         title="Data Tahun Ajaran"
-        description="Kelola data tahun ajaran dan semester"
+        description="Kelola data tahun ajaran"
         :data="tahunAjaran"
         :columns="columns"
         :loading="loading"
@@ -38,7 +38,7 @@
             </div>
             <div class="ml-4">
               <div class="text-sm font-medium text-gray-900">{{ item.tahun }}</div>
-              <div class="text-sm text-gray-500">Semester {{ item.semester === '1' ? 'Ganjil' : 'Genap' }}</div>
+              <div class="text-sm text-gray-500">Semester {{ item.semester }}</div>
             </div>
           </div>
         </template>
@@ -51,16 +51,6 @@
 
         <template #row-actions="{ item }">
           <div class="flex items-center space-x-2">
-            <button
-              v-if="!item.is_active"
-              @click="activateTahunAjaran(item)"
-              class="text-green-600 hover:text-green-900"
-              title="Aktifkan"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            </button>
             <button @click="editTahunAjaran(item)" class="text-blue-600 hover:text-blue-900" title="Edit">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -83,36 +73,44 @@
       <!-- Form Modal -->
       <Modal v-model:show="showForm" :title="isEditing ? 'Edit Tahun Ajaran' : 'Tambah Tahun Ajaran'" size="lg">
         <form @submit.prevent="submitForm" id="tahun-ajaran-form" class="space-y-4">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField
-              v-model="form.tahun"
-              label="Tahun Ajaran"
-              placeholder="Contoh: 2024/2025"
-              required
-              :error="errors.tahun"
-            />
-            <FormField
-              v-model="form.semester"
-              type="select"
-              label="Semester"
-              placeholder="Pilih semester"
-              :options="semesterOptions"
-              required
-              :error="errors.semester"
-            />
-          </div>
-          <div>
-            <label class="flex items-center">
-              <input
-                v-model="form.is_active"
-                type="checkbox"
-                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span class="ml-2 text-sm text-gray-700">Aktifkan tahun ajaran ini</span>
-            </label>
+          <FormField
+            v-model="form.tahun"
+            label="Tahun Ajaran"
+            placeholder="Contoh: 2024/2025"
+            required
+            :error="errors.tahun"
+            :disabled="isEditing"
+          />
+          
+          <!-- Active Semester Selection -->
+          <div class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700">Semester Aktif *</label>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input
+                  v-model="form.active_semester"
+                  type="radio"
+                  value="1"
+                  class="border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span class="ml-2 text-sm text-gray-700">Semester 1</span>
+              </label>
+              <label class="flex items-center">
+                <input
+                  v-model="form.active_semester"
+                  type="radio"
+                  value="2"
+                  class="border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span class="ml-2 text-sm text-gray-700">Semester 2</span>
+              </label>
+            </div>
             <p class="mt-1 text-xs text-gray-500">
-              Jika diaktifkan, tahun ajaran lain akan otomatis dinonaktifkan
+              <span v-if="!isEditing">Pilih semester yang akan diaktifkan. Sistem akan otomatis membuat tahun ajaran untuk Semester 1 dan Semester 2.</span>
+              <span v-if="isEditing">Pilih semester yang akan diaktifkan untuk tahun ajaran ini.</span>
+              Jika diaktifkan, tahun ajaran lain akan otomatis dinonaktifkan.
             </p>
+            <p v-if="errors.active_semester" class="mt-1 text-sm text-red-600">{{ errors.active_semester }}</p>
           </div>
         </form>
 
@@ -132,7 +130,7 @@
       <ConfirmDialog
         v-model:show="showDeleteConfirm"
         title="Hapus Tahun Ajaran"
-        :message="`Apakah Anda yakin ingin menghapus tahun ajaran ${selectedTahunAjaran?.tahun} Semester ${selectedTahunAjaran?.semester === '1' ? 'Ganjil' : 'Genap'}?`"
+        :message="`Apakah Anda yakin ingin menghapus tahun ajaran ${selectedTahunAjaran?.tahun}?`"
         confirm-text="Ya, Hapus"
         type="error"
         :loading="deleting"
@@ -158,7 +156,6 @@ const tahunAjaran = ref([])
 const loading = ref(true)
 const submitting = ref(false)
 const deleting = ref(false)
-const activating = ref(false)
 
 // Form state
 const showForm = ref(false)
@@ -169,8 +166,8 @@ const selectedTahunAjaran = ref(null)
 // Form data
 const form = reactive({
   tahun: '',
-  semester: '',
-  is_active: false
+  is_active: false,
+  active_semester: '1'
 })
 
 const errors = ref({})
@@ -186,11 +183,6 @@ const statusOptions = [
   { value: '', label: 'Semua Status' },
   { value: 'true', label: 'Aktif' },
   { value: 'false', label: 'Tidak Aktif' }
-]
-
-const semesterOptions = [
-  { value: '1', label: 'Semester 1 (Ganjil)' },
-  { value: '2', label: 'Semester 2 (Genap)' }
 ]
 
 // Table columns
@@ -226,8 +218,8 @@ const fetchTahunAjaran = async () => {
 
 const resetForm = () => {
   form.tahun = ''
-  form.semester = ''
   form.is_active = false
+  form.active_semester = '1'
   errors.value = {}
   isEditing.value = false
   selectedTahunAjaran.value = null
@@ -242,8 +234,7 @@ const editTahunAjaran = (item) => {
   isEditing.value = true
   selectedTahunAjaran.value = item
   form.tahun = item.tahun || ''
-  form.semester = item.semester || ''
-  form.is_active = item.is_active || false
+  form.active_semester = item.semester || '1'
   showForm.value = true
 }
 
@@ -252,10 +243,27 @@ const submitForm = async () => {
     submitting.value = true
     errors.value = {}
 
-    const url = isEditing.value ? `/admin/tahun-ajaran/${selectedTahunAjaran.value.id}` : '/admin/tahun-ajaran'
-    const method = isEditing.value ? 'put' : 'post'
+    // Validation
+    if (!form.active_semester) {
+      errors.value.active_semester = 'Pilih semester yang aktif'
+      toast.error('Pilih semester yang aktif')
+      submitting.value = false
+      return
+    }
 
-    await axios[method](url, form)
+    if (isEditing.value) {
+      // Edit mode - update active semester
+      const url = `/admin/tahun-ajaran/${selectedTahunAjaran.value.id}`
+      await axios.put(url, {
+        active_semester: form.active_semester
+      })
+    } else {
+      // Create mode - always create both semesters, only one is active
+      await axios.post('/admin/tahun-ajaran', {
+        tahun: form.tahun,
+        active_semester: form.active_semester
+      })
+    }
 
     toast.success(`Tahun ajaran berhasil ${isEditing.value ? 'diperbarui' : 'ditambahkan'}`)
     closeForm()
@@ -292,19 +300,6 @@ const confirmDelete = async () => {
   }
 }
 
-const activateTahunAjaran = async (item) => {
-  try {
-    activating.value = true
-    await axios.post(`/admin/tahun-ajaran/${item.id}/activate`)
-    toast.success('Tahun ajaran berhasil diaktifkan')
-    fetchTahunAjaran()
-  } catch (error) {
-    const message = error.response?.data?.message || 'Gagal mengaktifkan tahun ajaran'
-    toast.error(message)
-  } finally {
-    activating.value = false
-  }
-}
 
 const getStatusBadge = (isActive) => {
   return isActive

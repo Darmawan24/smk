@@ -77,19 +77,6 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
               </svg>
             </button>
-            <button @click="resetPassword(item)" class="text-yellow-600 hover:text-yellow-900" title="Reset Password">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-6 6H4a3 3 0 01-3-3V9a3 3 0 013-3h2M8 7a2 2 0 012-2h2m0 0a2 2 0 012 2M7 7a2 2 0 00-2 2m0 0a2 2 0 002 2h4a2 2 0 002-2m-2 0a2 2 0 00-2-2H7z"></path>
-              </svg>
-            </button>
-            <button @click="toggleStatus(item)" class="text-indigo-600 hover:text-indigo-900" :title="item.is_active ? 'Nonaktifkan' : 'Aktifkan'">
-              <svg v-if="item.is_active" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
-              </svg>
-              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            </button>
             <button @click="deleteUser(item)" class="text-red-600 hover:text-red-900" title="Hapus">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -122,54 +109,27 @@
               :error="errors.email"
             />
             <FormField
-              v-if="!isEditing"
               v-model="form.password"
               type="password"
               label="Password"
-              placeholder="Masukkan password (min. 8 karakter)"
-              required
+              :placeholder="isEditing ? 'Kosongkan jika tidak ingin mengubah password' : 'Masukkan password (min. 8 karakter)'"
+              :required="!isEditing"
               :error="errors.password"
             />
             
-            <!-- Nama Lengkap - hanya untuk admin -->
+            <!-- NIS Field (for siswa) -->
             <FormField
-              v-if="form.role === 'admin'"
-              v-model="form.name"
-              label="Nama Lengkap"
-              placeholder="Masukkan nama lengkap"
+              v-if="form.role === 'siswa'"
+              v-model="form.nis"
+              label="NIS"
+              placeholder="Masukkan NIS"
               required
-              :error="errors.name"
+              :error="errors.nis"
             />
-            
-            <!-- Nama Lengkap - auto-fill dari guru untuk guru, wali_kelas, kepala_sekolah -->
-            <div v-if="['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)" class="space-y-2">
-              <label class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
-              <input
-                type="text"
-                :value="form.name"
-                disabled
-                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
-                placeholder="Pilih guru terlebih dahulu"
-              />
-              <p class="text-xs text-gray-500">Nama akan diambil dari guru yang dipilih</p>
-            </div>
-            
-            <!-- Nama Lengkap - auto-fill dari siswa untuk siswa -->
-            <div v-if="form.role === 'siswa'" class="space-y-2">
-              <label class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
-              <input
-                type="text"
-                :value="form.name"
-                disabled
-                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
-                placeholder="Pilih siswa terlebih dahulu"
-              />
-              <p class="text-xs text-gray-500">Nama akan diambil dari siswa yang dipilih</p>
-            </div>
             
             <!-- Pilih Guru (for guru, wali_kelas, kepala_sekolah) -->
             <FormField
-              v-if="['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role) && !isEditing"
+              v-if="['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)"
               v-model="form.guru_id"
               type="select"
               label="Pilih Guru"
@@ -181,7 +141,7 @@
               :error="errors.guru_id"
               @update:model-value="onGuruSelect"
             />
-            <div v-if="['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role) && selectedGuru && !isEditing" class="p-3 bg-blue-50 rounded-lg">
+            <div v-if="['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role) && selectedGuru" class="p-3 bg-blue-50 rounded-lg">
               <p class="text-sm text-gray-700">
                 <strong>Nama:</strong> {{ selectedGuru.nama_lengkap }}<br>
                 <strong>NUPTK:</strong> {{ selectedGuru.nuptk }}<br>
@@ -191,7 +151,7 @@
             
             <!-- Pilih Siswa (for siswa) -->
             <FormField
-              v-if="form.role === 'siswa' && !isEditing"
+              v-if="form.role === 'siswa'"
               v-model="form.siswa_id"
               type="select"
               label="Pilih Siswa"
@@ -203,20 +163,14 @@
               :error="errors.siswa_id"
               @update:model-value="onSiswaSelect"
             />
-            <div v-if="form.role === 'siswa' && selectedSiswa && !isEditing" class="p-3 bg-blue-50 rounded-lg">
+            <div v-if="form.role === 'siswa' && selectedSiswa" class="p-3 bg-blue-50 rounded-lg">
               <p class="text-sm text-gray-700">
                 <strong>Nama:</strong> {{ selectedSiswa.nama_lengkap }}<br>
                 <strong>NIS:</strong> {{ selectedSiswa.nis }}<br>
                 <strong>Kelas:</strong> {{ selectedSiswa.kelas?.nama_kelas || '-' }}
               </p>
             </div>
-            <FormField
-              v-if="isEditing"
-              v-model="form.is_active"
-              type="checkbox"
-              label="Status Aktif"
-              :error="errors.is_active"
-            />
+            
           </div>
         </form>
 
@@ -232,38 +186,6 @@
         </template>
       </Modal>
 
-      <!-- Reset Password Modal -->
-      <Modal v-model:show="showResetPasswordModal" title="Reset Password" size="sm">
-        <form @submit.prevent="confirmResetPassword" id="reset-password-form" class="space-y-4">
-          <p class="text-sm text-gray-600">
-            Reset password untuk user <strong>{{ selectedUser?.name }}</strong>
-          </p>
-          <FormField
-            v-model="resetPasswordForm.password"
-            type="password"
-            label="Password Baru"
-            placeholder="Masukkan password baru (min. 8 karakter)"
-            required
-            :error="resetPasswordErrors.password"
-          />
-          <FormField
-            v-model="resetPasswordForm.password_confirmation"
-            type="password"
-            label="Konfirmasi Password"
-            placeholder="Konfirmasi password baru"
-            required
-            :error="resetPasswordErrors.password_confirmation"
-          />
-        </form>
-
-        <template #footer>
-          <button type="submit" form="reset-password-form" :disabled="resettingPassword" class="btn btn-primary">
-            {{ resettingPassword ? 'Mereset...' : 'Reset Password' }}
-          </button>
-          <button type="button" @click="showResetPasswordModal = false" class="btn btn-secondary mr-3">Batal</button>
-        </template>
-      </Modal>
-
       <!-- Confirmation Dialogs -->
       <ConfirmDialog
         v-model:show="showDeleteConfirm"
@@ -275,15 +197,6 @@
         @confirm="confirmDelete"
       />
 
-      <ConfirmDialog
-        v-model:show="showToggleStatusConfirm"
-        title="Ubah Status User"
-        :message="`Apakah Anda yakin ingin ${selectedUser?.is_active ? 'menonaktifkan' : 'mengaktifkan'} user ${selectedUser?.name}?`"
-        confirm-text="Ya, Ubah"
-        type="warning"
-        :loading="togglingStatus"
-        @confirm="confirmToggleStatus"
-      />
     </div>
   </div>
 </template>
@@ -304,14 +217,10 @@ const users = ref([])
 const loading = ref(true)
 const submitting = ref(false)
 const deleting = ref(false)
-const resettingPassword = ref(false)
-const togglingStatus = ref(false)
 
 // Form state
 const showForm = ref(false)
 const showDeleteConfirm = ref(false)
-const showToggleStatusConfirm = ref(false)
-const showResetPasswordModal = ref(false)
 const isEditing = ref(false)
 const selectedUser = ref(null)
 
@@ -323,9 +232,7 @@ const form = reactive({
   role: '',
   guru_id: '',
   siswa_id: '',
-  nuptk: '',
-  nis: '',
-  is_active: true
+  nis: ''
 })
 
 // Available guru for selection
@@ -336,13 +243,7 @@ const selectedGuru = ref(null)
 const availableSiswaOptions = ref([])
 const selectedSiswa = ref(null)
 
-const resetPasswordForm = reactive({
-  password: '',
-  password_confirmation: ''
-})
-
 const errors = ref({})
-const resetPasswordErrors = ref({})
 
 // Filters
 const filters = reactive({
@@ -413,7 +314,11 @@ const fetchUsers = async () => {
 
 const fetchAvailableGuru = async () => {
   try {
-    const response = await axios.get('/admin/guru/available-guru')
+    const params = new URLSearchParams()
+    if (isEditing.value && selectedUser.value) {
+      params.append('user_id', selectedUser.value.id)
+    }
+    const response = await axios.get(`/admin/guru/available-guru?${params}`)
     availableGuruOptions.value = response.data.map(guru => ({
       ...guru,
       label: `${guru.nama_lengkap} (${guru.nuptk}) - ${guru.bidang_studi}`
@@ -426,7 +331,11 @@ const fetchAvailableGuru = async () => {
 
 const fetchAvailableSiswa = async () => {
   try {
-    const response = await axios.get('/admin/siswa/available-siswa')
+    const params = new URLSearchParams()
+    if (isEditing.value && selectedUser.value) {
+      params.append('user_id', selectedUser.value.id)
+    }
+    const response = await axios.get(`/admin/siswa/available-siswa?${params}`)
     availableSiswaOptions.value = response.data.map(siswa => ({
       ...siswa,
       label: `${siswa.nama_lengkap} (${siswa.nis}) - ${siswa.kelas?.nama_kelas || '-'}`
@@ -441,13 +350,11 @@ const onGuruSelect = (guruId) => {
   const guru = availableGuruOptions.value.find(g => g.id == guruId)
   if (guru) {
     selectedGuru.value = guru
-    // Auto-fill name and NUPTK from guru (nama lengkap wajib dari guru)
+    // Auto-fill name from guru
     form.name = guru.nama_lengkap
-    form.nuptk = guru.nuptk
   } else {
     selectedGuru.value = null
     form.name = ''
-    form.nuptk = ''
   }
 }
 
@@ -467,11 +374,7 @@ const onSiswaSelect = (siswaId) => {
 
 const resetForm = () => {
   Object.keys(form).forEach(key => {
-    if (key === 'is_active') {
-      form[key] = true
-    } else {
       form[key] = ''
-    }
   })
   errors.value = {}
   isEditing.value = false
@@ -490,7 +393,6 @@ const closeForm = () => {
 const handleRoleChange = () => {
   // Clear all fields when role changes
   form.name = ''
-  form.nuptk = ''
   form.nis = ''
   form.guru_id = ''
   form.siswa_id = ''
@@ -498,9 +400,9 @@ const handleRoleChange = () => {
   selectedSiswa.value = null
   
   // Fetch available data based on role
-  if (['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role) && !isEditing.value) {
+  if (['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)) {
     fetchAvailableGuru()
-  } else if (form.role === 'siswa' && !isEditing.value) {
+  } else if (form.role === 'siswa') {
     fetchAvailableSiswa()
   }
 }
@@ -511,15 +413,45 @@ const openForm = () => {
   // Will fetch guru when role is selected
 }
 
-const editUser = (user) => {
+const editUser = async (user) => {
   isEditing.value = true
   selectedUser.value = user
   form.name = user.name || ''
   form.email = user.email || ''
   form.role = user.role || ''
-  form.nuptk = user.nuptk || ''
   form.nis = user.nis || ''
-  form.is_active = user.is_active ?? true
+  form.password = '' // Always empty for edit, user can fill if they want to change password
+  
+  // Load related guru/siswa if exists
+  if (user.guru) {
+    form.guru_id = user.guru.id
+    selectedGuru.value = {
+      id: user.guru.id,
+      nama_lengkap: user.guru.nama_lengkap,
+      nuptk: user.guru.nuptk,
+      bidang_studi: user.guru.bidang_studi
+    }
+    // Fetch available guru options
+    await fetchAvailableGuru()
+  } else if (user.siswa) {
+    form.siswa_id = user.siswa.id
+    selectedSiswa.value = {
+      id: user.siswa.id,
+      nama_lengkap: user.siswa.nama_lengkap,
+      nis: user.siswa.nis,
+      kelas: user.siswa.kelas
+    }
+    // Fetch available siswa options
+    await fetchAvailableSiswa()
+  } else {
+    // Fetch available options based on role
+    if (['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)) {
+      await fetchAvailableGuru()
+    } else if (form.role === 'siswa') {
+      await fetchAvailableSiswa()
+    }
+  }
+  
   showForm.value = true
 }
 
@@ -564,9 +496,9 @@ const submitForm = async () => {
     const method = isEditing.value ? 'put' : 'post'
     
     const payload = { ...form }
-    if (isEditing.value) {
+    // For edit, only include password if provided (not empty)
+    if (isEditing.value && !payload.password) {
       delete payload.password
-      delete payload.guru_id // Don't allow changing guru on edit
     }
     
     // Only include guru_id if role requires it
@@ -579,9 +511,11 @@ const submitForm = async () => {
       delete payload.siswa_id
     }
     
-    // Remove NUPTK and NIS from payload (will be auto-filled from selected data)
-    delete payload.nuptk
+    // Remove NIS from payload for create (will be auto-filled from selected data)
+    // For edit: Include NIS if provided
+    if (!isEditing.value) {
     delete payload.nis
+    }
     
     await axios[method](url, payload)
     
@@ -620,51 +554,6 @@ const confirmDelete = async () => {
   }
 }
 
-const resetPassword = (user) => {
-  selectedUser.value = user
-  resetPasswordForm.password = ''
-  resetPasswordForm.password_confirmation = ''
-  resetPasswordErrors.value = {}
-  showResetPasswordModal.value = true
-}
-
-const confirmResetPassword = async () => {
-  try {
-    resettingPassword.value = true
-    resetPasswordErrors.value = {}
-    
-    await axios.post(`/admin/user/${selectedUser.value.id}/reset-password`, resetPasswordForm)
-    toast.success('Password berhasil direset')
-    showResetPasswordModal.value = false
-  } catch (error) {
-    if (error.response?.status === 422) {
-      resetPasswordErrors.value = error.response.data.errors || {}
-    } else {
-      toast.error('Gagal mereset password')
-    }
-  } finally {
-    resettingPassword.value = false
-  }
-}
-
-const toggleStatus = (user) => {
-  selectedUser.value = user
-  showToggleStatusConfirm.value = true
-}
-
-const confirmToggleStatus = async () => {
-  try {
-    togglingStatus.value = true
-    await axios.post(`/admin/user/${selectedUser.value.id}/toggle-status`)
-    toast.success('Status user berhasil diubah')
-    showToggleStatusConfirm.value = false
-    fetchUsers()
-  } catch (error) {
-    toast.error('Gagal mengubah status user')
-  } finally {
-    togglingStatus.value = false
-  }
-}
 
 const formatRole = (role) => {
   const roleMap = {

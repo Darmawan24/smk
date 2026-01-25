@@ -132,7 +132,7 @@
               type="select"
               label="Tahun Ajaran"
               placeholder="Pilih tahun ajaran"
-              :options="tahunAjaranOptions.map(ta => ({ value: ta.id, label: `${ta.tahun} - Semester ${ta.semester}` }))"
+              :options="tahunAjaranOptions.map(ta => ({ value: ta.id, label: ta.tahun }))"
               required
               :error="errors.tahun_ajaran_id"
             />
@@ -327,7 +327,7 @@ const tahunAjaranFilterOptions = computed(() => [
   { id: '', label: 'Semua Tahun Ajaran' },
   ...tahunAjaranOptions.value.map(ta => ({
     id: ta.id,
-    label: `${ta.tahun} - Semester ${ta.semester}`
+    label: ta.tahun
   }))
 ])
 
@@ -448,11 +448,14 @@ const fetchTahunAjaran = async () => {
         per_page: 100
       }
     })
+    let allTahunAjaran = []
     if (response.data.data) {
-      tahunAjaranOptions.value = response.data.data
+      allTahunAjaran = response.data.data
     } else if (Array.isArray(response.data)) {
-      tahunAjaranOptions.value = response.data
+      allTahunAjaran = response.data
     }
+    // Filter hanya semester 2
+    tahunAjaranOptions.value = allTahunAjaran.filter(ta => ta.semester === '2' || ta.semester === 2)
   } catch (error) {
     console.error('Error fetching tahun ajaran:', error)
   }

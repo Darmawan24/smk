@@ -104,13 +104,24 @@
               required
               :error="errors.nama_lengkap"
             />
-            <FormField
-              v-model="form.nuptk"
-              label="NUPTK"
-              placeholder="Masukkan NUPTK"
-              required
-              :error="errors.nuptk"
-            />
+            <div class="space-y-1">
+              <label for="nuptk" class="block text-sm font-medium text-gray-700">
+                NUPTK <span class="text-red-500">*</span>
+              </label>
+              <div class="relative">
+                <input
+                  id="nuptk"
+                  v-model="form.nuptk"
+                  type="text"
+                  placeholder="Masukkan NUPTK"
+                  required
+                  @input="handleNuptkInput"
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  :class="{ 'border-red-300 focus:border-red-500 focus:ring-red-500': errors.nuptk }"
+                />
+              </div>
+              <p v-if="errors.nuptk" class="text-sm text-red-600">{{ errors.nuptk }}</p>
+            </div>
             <FormField
               v-model="form.jenis_kelamin"
               type="select"
@@ -437,6 +448,20 @@ const openForm = () => {
   showForm.value = true
 }
 
+const formatDateForInput = (date) => {
+  if (!date) return ''
+  // If already in YYYY-MM-DD format, return as is
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date
+  }
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const editGuru = (guruItem) => {
   isEditing.value = true
   selectedGuru.value = guruItem
@@ -444,13 +469,13 @@ const editGuru = (guruItem) => {
   form.nuptk = guruItem.nuptk || ''
   form.jenis_kelamin = guruItem.jenis_kelamin || ''
   form.tempat_lahir = guruItem.tempat_lahir || ''
-  form.tanggal_lahir = guruItem.tanggal_lahir || ''
+  form.tanggal_lahir = formatDateForInput(guruItem.tanggal_lahir)
   form.agama = guruItem.agama || ''
   form.alamat = guruItem.alamat || ''
   form.no_hp = guruItem.no_hp || ''
   form.pendidikan_terakhir = guruItem.pendidikan_terakhir || ''
   form.bidang_studi = guruItem.bidang_studi || ''
-  form.tanggal_masuk = guruItem.tanggal_masuk || ''
+  form.tanggal_masuk = formatDateForInput(guruItem.tanggal_masuk)
   form.status = guruItem.status || 'aktif'
   showForm.value = true
 }
@@ -466,7 +491,7 @@ const submitForm = async () => {
     // Only send required fields
     const payload = {
       nama_lengkap: form.nama_lengkap,
-      nuptk: form.nuptk,
+      nuptk: form.nuptk || '-', // Allow '-' as NUPTK
       jenis_kelamin: form.jenis_kelamin,
       tempat_lahir: form.tempat_lahir,
       tanggal_lahir: form.tanggal_lahir,
@@ -482,6 +507,9 @@ const submitForm = async () => {
     if (isEditing.value) {
       payload.status = form.status
     }
+    
+    // Debug: Log the request
+    console.log('Submitting guru form:', { url, method, payload })
     
     await axios[method](url, payload)
     
@@ -569,6 +597,24 @@ const confirmToggleStatus = async () => {
 const handleSearch = (searchTerm) => {
   filters.search = searchTerm
   fetchGuru()
+}
+
+const handleNuptkInput = (event) => {
+  // Only allow numbers and minus sign
+  let value = event.target.value.replace(/[^0-9-]/g, '')
+  // Ensure minus sign only appears once and at the beginning
+  const minusCount = (value.match(/-/g) || []).length
+  if (minusCount > 1) {
+    // Keep only the first minus sign
+    value = value.replace(/-/g, (match, offset) => offset === 0 ? match : '')
+  }
+  // If minus is not at the beginning, remove it
+  if (value.includes('-') && !value.startsWith('-')) {
+    value = value.replace(/-/g, '')
+  }
+  form.nuptk = value
+  // Update the input value to reflect the filtered value
+  event.target.value = value
 }
 
 const formatRole = (role) => {

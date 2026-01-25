@@ -72,7 +72,6 @@ class UserController extends Controller
             'role' => ['required', 'in:admin,guru,wali_kelas,kepala_sekolah,siswa'],
             'guru_id' => ['nullable', 'exists:guru,id', 'required_if:role,guru,wali_kelas,kepala_sekolah'],
             'siswa_id' => ['nullable', 'exists:siswa,id', 'required_if:role,siswa'],
-            'nuptk' => ['nullable', 'string', 'unique:users'],
             'nis' => ['nullable', 'string', 'unique:users'],
             'is_active' => ['nullable', 'boolean'],
         ]);
@@ -94,11 +93,10 @@ class UserController extends Controller
                 ], 422);
             }
             
-            // Auto-fill name and NUPTK from guru
+            // Auto-fill name from guru (NUPTK is in guru table, not user table)
             if ($guru) {
                 $request->merge([
                     'name' => $guru->nama_lengkap,
-                    'nuptk' => $guru->nuptk,
                 ]);
             }
         } elseif ($request->role === 'siswa') {
@@ -140,7 +138,6 @@ class UserController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => $request->role,
-                'nuptk' => $request->nuptk,
                 'nis' => $request->nis,
                 'is_active' => $request->is_active ?? true,
             ]);
@@ -232,37 +229,157 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'], // Optional, will use existing if not provided
             'email' => ['required', 'string', 'email', Rule::unique('users')->ignore($user->id)],
             'role' => ['required', 'in:admin,guru,wali_kelas,kepala_sekolah,siswa'],
-            'nuptk' => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
+            'password' => ['nullable', 'string', 'min:8'], // Optional for edit
+            'guru_id' => ['nullable', 'exists:guru,id'],
+            'siswa_id' => ['nullable', 'exists:siswa,id'],
             'nis' => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
-            'is_active' => ['nullable', 'boolean'],
         ]);
 
         // Validate role-specific fields
-        if (in_array($request->role, ['guru', 'wali_kelas', 'kepala_sekolah']) && !$request->nuptk) {
+        // For guru/wali_kelas/kepala_sekolah: guru_id is required
+        if (in_array($request->role, ['guru', 'wali_kelas', 'kepala_sekolah'])) {
+            // If guru_id is provided, validate it
+            if ($request->guru_id) {
+                $guru = \App\Models\Guru::find($request->guru_id);
+                if (!$guru) {
             return response()->json([
-                'message' => 'NUPTK wajib diisi untuk role guru, wali kelas, atau kepala sekolah',
+                        'message' => 'Guru yang dipilih tidak ditemukan.',
             ], 422);
         }
 
-        if ($request->role === 'siswa' && !$request->nis) {
+                // Check if guru is already linked to another user
+                if ($guru->user_id && $guru->user_id != $user->id) {
+                    return response()->json([
+                        'message' => 'Guru ini sudah memiliki user lain.',
+                    ], 422);
+                }
+            } else {
+                // If no guru_id provided, check if user already has guru
+                if (!$user->guru) {
+                    return response()->json([
+                        'message' => 'Guru harus dipilih untuk role ' . $request->role,
+                    ], 422);
+                }
+            }
+        }
+
+        if ($request->role === 'siswa') {
+            // If siswa_id is provided, validate it
+            if ($request->siswa_id) {
+                $siswa = \App\Models\Siswa::find($request->siswa_id);
+                if (!$siswa) {
+                    return response()->json([
+                        'message' => 'Siswa yang dipilih tidak ditemukan.',
+                    ], 422);
+                }
+                
+                // Check if siswa is already linked to another user
+                if ($siswa->user_id && $siswa->user_id != $user->id) {
+                    return response()->json([
+                        'message' => 'Siswa ini sudah memiliki user lain.',
+                    ], 422);
+                }
+            } else {
+                // If no siswa_id provided, check if user already has siswa
+                if (!$user->siswa) {
+                    return response()->json([
+                        'message' => 'Siswa harus dipilih untuk role siswa',
+                    ], 422);
+                }
+            }
+            
+            $nis = $request->nis ?? ($request->siswa_id ? \App\Models\Siswa::find($request->siswa_id)->nis : null) ?? $user->siswa->nis ?? $user->nis ?? null;
+            if (empty($nis) || $nis === '') {
             return response()->json([
                 'message' => 'NIS wajib diisi untuk role siswa',
             ], 422);
+            }
         }
 
         DB::beginTransaction();
         try {
-            $user->update([
-                'name' => $request->name,
+            $nameFromGuruSiswa = null;
+            $nisFromSiswa = null;
+            
+            // Handle guru/siswa linking/unlinking
+            if (in_array($request->role, ['guru', 'wali_kelas', 'kepala_sekolah'])) {
+                // Unlink previous guru if exists and different from new one
+                if ($user->guru && $user->guru->id != $request->guru_id) {
+                    $user->guru->update(['user_id' => null]);
+                }
+                
+                // Link new guru if provided
+                if ($request->guru_id) {
+                    $guru = \App\Models\Guru::find($request->guru_id);
+                    if ($guru && (!$user->guru || $user->guru->id != $guru->id)) {
+                        $guru->update(['user_id' => $user->id]);
+                        // Update name from guru
+                        $nameFromGuruSiswa = $guru->nama_lengkap;
+                    } elseif ($guru && $user->guru && $user->guru->id == $guru->id) {
+                        // Keep existing guru, use its name
+                        $nameFromGuruSiswa = $guru->nama_lengkap;
+                    }
+                } elseif ($user->guru) {
+                    // Keep existing guru, use its name
+                    $nameFromGuruSiswa = $user->guru->nama_lengkap;
+                }
+            } elseif ($request->role === 'siswa') {
+                // Unlink previous siswa if exists and different from new one
+                if ($user->siswa && $user->siswa->id != $request->siswa_id) {
+                    $user->siswa->update(['user_id' => null]);
+                }
+                
+                // Link new siswa if provided
+                if ($request->siswa_id) {
+                    $siswa = \App\Models\Siswa::find($request->siswa_id);
+                    if ($siswa && (!$user->siswa || $user->siswa->id != $siswa->id)) {
+                        $siswa->update(['user_id' => $user->id]);
+                        // Update name and NIS from siswa
+                        $nameFromGuruSiswa = $siswa->nama_lengkap;
+                        $nisFromSiswa = $siswa->nis;
+                    } elseif ($siswa && $user->siswa && $user->siswa->id == $siswa->id) {
+                        // Keep existing siswa, use its name and NIS
+                        $nameFromGuruSiswa = $siswa->nama_lengkap;
+                        $nisFromSiswa = $siswa->nis;
+                    }
+                } elseif ($user->siswa) {
+                    // Keep existing siswa, use its name and NIS
+                    $nameFromGuruSiswa = $user->siswa->nama_lengkap;
+                    $nisFromSiswa = $user->siswa->nis;
+                }
+            } else {
+                // For admin role, unlink any existing guru/siswa
+                if ($user->guru) {
+                    $user->guru->update(['user_id' => null]);
+                }
+                if ($user->siswa) {
+                    $user->siswa->update(['user_id' => null]);
+                }
+            }
+            
+            $updateData = [
+                'name' => $request->name ?? $nameFromGuruSiswa ?? $user->name, // Use existing name if not provided
                 'email' => $request->email,
                 'role' => $request->role,
-                'nuptk' => $request->nuptk,
-                'nis' => $request->nis,
-                'is_active' => $request->is_active ?? $user->is_active,
-            ]);
+                // is_active tetap menggunakan nilai yang sudah ada
+            ];
+            
+            // Only update password if provided
+            if ($request->has('password') && !empty($request->password)) {
+                $updateData['password'] = Hash::make($request->password);
+            }
+            
+            // Only update NIS if provided (for siswa role)
+            if ($request->has('nis')) {
+                $updateData['nis'] = $request->nis;
+            } elseif ($nisFromSiswa) {
+                $updateData['nis'] = $nisFromSiswa;
+            }
+            
+            $user->update($updateData);
 
             DB::commit();
 
@@ -302,39 +419,19 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
-        // Prevent deleting user if they have related data
-        if ($user->guru()->exists()) {
-            return response()->json([
-                'message' => 'User tidak dapat dihapus karena masih memiliki data guru. Hapus data guru terlebih dahulu.',
-            ], 422);
-        }
-
-        if ($user->siswa()->exists()) {
-            return response()->json([
-                'message' => 'User tidak dapat dihapus karena masih memiliki data siswa. Hapus data siswa terlebih dahulu.',
-            ], 422);
-        }
-
-        if ($user->kelasAsWali()->exists()) {
-            return response()->json([
-                'message' => 'User tidak dapat dihapus karena masih menjadi wali kelas. Pindahkan kelas terlebih dahulu.',
-            ], 422);
-        }
-
-        if ($user->catatanAkademik()->exists()) {
-            return response()->json([
-                'message' => 'User tidak dapat dihapus karena masih memiliki catatan akademik.',
-            ], 422);
-        }
-
-        if ($user->approvedRapor()->exists()) {
-            return response()->json([
-                'message' => 'User tidak dapat dihapus karena masih memiliki rapor yang disetujui.',
-            ], 422);
-        }
-
         DB::beginTransaction();
         try {
+            // Remove user_id from related guru if exists (set to null, don't delete guru data)
+            if ($user->guru) {
+                $user->guru->update(['user_id' => null]);
+            }
+            
+            // Remove user_id from related siswa if exists (set to null, don't delete siswa data)
+            if ($user->siswa) {
+                $user->siswa->update(['user_id' => null]);
+            }
+
+            // Delete the user
             $user->delete();
 
             DB::commit();

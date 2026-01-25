@@ -63,6 +63,8 @@ import CetakRaporProfilSiswaIndex from './pages/wali-kelas/cetak-rapor/profil-si
 // Kepala Sekolah pages
 import KepalaSekolahDashboard from './pages/kepala-sekolah/Dashboard.vue'
 import RaporApprovalIndex from './pages/kepala-sekolah/rapor-approval/Index.vue'
+import RaporApprovalBelajar from './pages/kepala-sekolah/rapor-approval/Belajar.vue'
+import RaporApprovalP5 from './pages/kepala-sekolah/rapor-approval/P5.vue'
 import RekapIndex from './pages/kepala-sekolah/rekap/Index.vue'
 
 // Siswa pages
@@ -365,6 +367,16 @@ const routes = [
         path: 'rapor-approval',
         name: 'kepala-sekolah.rapor-approval.index',
         component: RaporApprovalIndex
+      },
+      {
+        path: 'rapor-approval/belajar',
+        name: 'kepala-sekolah.rapor-approval.belajar',
+        component: RaporApprovalBelajar
+      },
+      {
+        path: 'rapor-approval/p5',
+        name: 'kepala-sekolah.rapor-approval.p5',
+        component: RaporApprovalP5
       },
       {
         path: 'rekap',

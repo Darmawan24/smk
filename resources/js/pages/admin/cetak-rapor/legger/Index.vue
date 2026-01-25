@@ -191,7 +191,7 @@ const fetchTahunAjaran = async () => {
     const response = await axios.get('/lookup/tahun-ajaran')
     tahunAjaranFilterOptions.value = response.data.map(ta => ({
       ...ta,
-      label: `${ta.tahun} - Semester ${ta.semester}`
+      label: ta.tahun
     }))
   } catch (error) {
     console.error('Failed to fetch tahun ajaran:', error)
@@ -216,7 +216,7 @@ const loadLegger = async () => {
       ...response.data,
       tahun_ajaran: response.data.tahun_ajaran ? {
         ...response.data.tahun_ajaran,
-        label: `${response.data.tahun_ajaran.tahun} - Semester ${response.data.tahun_ajaran.semester}`
+        label: response.data.tahun_ajaran.tahun
       } : null
     }
   } catch (error) {

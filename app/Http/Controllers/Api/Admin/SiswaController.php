@@ -60,8 +60,8 @@ class SiswaController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nis' => ['required', 'string', 'unique:siswa'],
-            'nisn' => ['nullable', 'string', 'unique:siswa'],
+            'nis' => ['required', 'string', 'unique:siswa', 'regex:/^[0-9]+$/'],
+            'nisn' => ['required', 'string', 'unique:siswa', 'regex:/^[0-9]+$/'],
             'nama_lengkap' => ['required', 'string', 'max:255'],
             'jenis_kelamin' => ['required', 'in:L,P'],
             'tempat_lahir' => ['required', 'string'],
@@ -147,8 +147,8 @@ class SiswaController extends Controller
     public function update(Request $request, Siswa $siswa)
     {
         $request->validate([
-            'nis' => ['required', 'string', Rule::unique('siswa')->ignore($siswa->id)],
-            'nisn' => ['nullable', 'string', Rule::unique('siswa')->ignore($siswa->id)],
+            'nis' => ['required', 'string', Rule::unique('siswa')->ignore($siswa->id), 'regex:/^[0-9]+$/'],
+            'nisn' => ['required', 'string', Rule::unique('siswa')->ignore($siswa->id), 'regex:/^[0-9]+$/'],
             'nama_lengkap' => ['required', 'string', 'max:255'],
             'jenis_kelamin' => ['required', 'in:L,P'],
             'tempat_lahir' => ['required', 'string'],
@@ -279,12 +279,21 @@ class SiswaController extends Controller
      */
     public function availableSiswa(Request $request)
     {
-        $siswa = Siswa::whereNull('user_id')
-            ->where('status', 'aktif')
+        $query = Siswa::where('status', 'aktif')
             ->with('kelas.jurusan')
-            ->select('id', 'nama_lengkap', 'nis', 'nisn', 'kelas_id')
-            ->orderBy('nama_lengkap')
-            ->get();
+            ->select('id', 'nama_lengkap', 'nis', 'kelas_id', 'user_id');
+        
+        // If editing, include siswa that's already linked to this user
+        if ($request->has('user_id')) {
+            $query->where(function($q) use ($request) {
+                $q->whereNull('user_id')
+                  ->orWhere('user_id', $request->user_id);
+            });
+        } else {
+            $query->whereNull('user_id');
+        }
+        
+        $siswa = $query->orderBy('nama_lengkap')->get();
 
         return response()->json($siswa);
     }

@@ -209,12 +209,19 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Kepala Sekolah routes
     Route::middleware('role:kepala_sekolah')->prefix('kepala-sekolah')->group(function () {
-        // Rapor Approval
-        Route::get('rapor/pending', [RaporApprovalController::class, 'pending']);
-        Route::get('rapor/{rapor}', [RaporApprovalController::class, 'show']);
-        Route::post('rapor/{rapor}/approve', [RaporApprovalController::class, 'approve']);
-        Route::post('rapor/{rapor}/reject', [RaporApprovalController::class, 'reject']);
-        Route::post('rapor/batch-approve', [RaporApprovalController::class, 'batchApprove']);
+        // Rapor Approval (Belajar)
+        Route::get('rapor-approval', [RaporApprovalController::class, 'index']);
+        Route::get('rapor-approval/pending', [RaporApprovalController::class, 'pending']);
+        Route::get('rapor-approval/{rapor}', [RaporApprovalController::class, 'show']);
+        Route::post('rapor-approval/{rapor}/approve', [RaporApprovalController::class, 'approve']);
+        Route::post('rapor-approval/{rapor}/reject', [RaporApprovalController::class, 'reject']);
+        Route::post('rapor-approval/bulk-approve', [RaporApprovalController::class, 'batchApprove']);
+        
+        // Rapor P5 Approval
+        Route::get('rapor-approval-p5', [RaporApprovalController::class, 'indexP5']);
+        Route::get('rapor-approval-p5/{siswa}', [RaporApprovalController::class, 'showP5']);
+        Route::post('rapor-approval-p5/{siswa}/approve', [RaporApprovalController::class, 'approveP5']);
+        Route::post('rapor-approval-p5/{siswa}/reject', [RaporApprovalController::class, 'rejectP5']);
 
         // Rekap & Reports
         Route::get('rekap/nilai', [RekapController::class, 'nilai']);

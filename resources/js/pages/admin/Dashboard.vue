@@ -136,7 +136,7 @@
                 Tahun Ajaran Aktif
               </h3>
               <div class="mt-2 text-sm text-blue-700">
-                <p>{{ stats.tahun_ajaran_aktif.full_description }}</p>
+                <p>{{ stats.tahun_ajaran_aktif?.tahun || '-' }}</p>
               </div>
             </div>
           </div>

@@ -37,8 +37,11 @@ return new class extends Migration
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         mata_pelajaran_id INTEGER NOT NULL,
                         kode_cp TEXT NOT NULL,
+                        target TEXT CHECK(target IN ('tengah_semester', 'akhir_semester')),
                         deskripsi TEXT NOT NULL,
                         fase TEXT NOT NULL CHECK(fase IN ('10', '11', '12')),
+                        semester TEXT,
+                        tingkat TEXT,
                         elemen TEXT NOT NULL CHECK(elemen IN ('pemahaman', 'keterampilan', 'sikap')),
                         is_active INTEGER DEFAULT 1,
                         created_at TIMESTAMP,
@@ -49,13 +52,45 @@ return new class extends Migration
                 ");
                 
                 // Copy data from old table
-                DB::statement("
-                    INSERT INTO capaian_pembelajaran_new 
-                    (id, mata_pelajaran_id, kode_cp, deskripsi, fase, elemen, is_active, created_at, updated_at)
-                    SELECT id, mata_pelajaran_id, kode_cp, deskripsi, fase, elemen, 
-                           COALESCE(is_active, 1) as is_active, created_at, updated_at
-                    FROM capaian_pembelajaran
-                ");
+                // Check if columns exist before selecting them
+                $hasTarget = false;
+                $hasSemester = false;
+                $hasTingkat = false;
+                try {
+                    $columns = DB::select("PRAGMA table_info(capaian_pembelajaran)");
+                    foreach ($columns as $column) {
+                        if ($column->name === 'target') $hasTarget = true;
+                        if ($column->name === 'semester') $hasSemester = true;
+                        if ($column->name === 'tingkat') $hasTingkat = true;
+                    }
+                } catch (\Exception $e) {
+                    // Ignore
+                }
+                
+                if ($hasTarget && $hasSemester && $hasTingkat) {
+                    // All columns exist, copy all
+                    DB::statement("
+                        INSERT INTO capaian_pembelajaran_new 
+                        (id, mata_pelajaran_id, kode_cp, target, deskripsi, fase, semester, tingkat, elemen, is_active, created_at, updated_at)
+                        SELECT id, mata_pelajaran_id, kode_cp, target, deskripsi, fase, semester, tingkat, elemen, 
+                               COALESCE(is_active, 1) as is_active, created_at, updated_at
+                        FROM capaian_pembelajaran
+                    ");
+                } else {
+                    // Some columns don't exist, copy only existing ones
+                    DB::statement("
+                        INSERT INTO capaian_pembelajaran_new 
+                        (id, mata_pelajaran_id, kode_cp, target, deskripsi, fase, semester, tingkat, elemen, is_active, created_at, updated_at)
+                        SELECT id, mata_pelajaran_id, kode_cp, 
+                               " . ($hasTarget ? "target" : "NULL") . " as target,
+                               deskripsi, fase, 
+                               " . ($hasSemester ? "semester" : "NULL") . " as semester,
+                               " . ($hasTingkat ? "tingkat" : "NULL") . " as tingkat,
+                               elemen, 
+                               COALESCE(is_active, 1) as is_active, created_at, updated_at
+                        FROM capaian_pembelajaran
+                    ");
+                }
                 
                 // Drop old table
                 DB::statement("DROP TABLE capaian_pembelajaran");

@@ -140,6 +140,7 @@ class GuruController extends Controller
     public function update(Request $request, Guru $guru)
     {
         $request->validate([
+            'nama_lengkap' => ['required', 'string', 'max:255'],
             'nuptk' => ['required', 'string', Rule::unique('guru')->ignore($guru->id)],
             'jenis_kelamin' => ['required', 'in:L,P'],
             'tempat_lahir' => ['required', 'string'],
@@ -155,16 +156,16 @@ class GuruController extends Controller
         DB::beginTransaction();
         try {
             // Update NUPTK in user if provided and different
-            if ($request->has('nuptk') && $guru->user->nuptk !== $request->nuptk) {
+            if ($request->has('nuptk') && $guru->user && $guru->user->nuptk !== $request->nuptk) {
                 $guru->user->update([
                     'nuptk' => $request->nuptk,
                 ]);
             }
 
-            // Update nama_lengkap in guru to match user name
-            $guru->update([
+            // Update nama_lengkap in guru to match user name if user exists, otherwise use form value
+            $updateData = [
                 'nuptk' => $request->nuptk,
-                'nama_lengkap' => $guru->user->name, // Keep in sync with user name
+                'nama_lengkap' => $guru->user ? $guru->user->name : ($request->nama_lengkap ?? $guru->nama_lengkap),
                 'jenis_kelamin' => $request->jenis_kelamin,
                 'tempat_lahir' => $request->tempat_lahir,
                 'tanggal_lahir' => $request->tanggal_lahir,
@@ -174,7 +175,9 @@ class GuruController extends Controller
                 'pendidikan_terakhir' => $request->pendidikan_terakhir,
                 'bidang_studi' => $request->bidang_studi,
                 'status' => $request->status,
-            ]);
+            ];
+            
+            $guru->update($updateData);
 
             DB::commit();
 
@@ -287,11 +290,20 @@ class GuruController extends Controller
      */
     public function availableGuru(Request $request)
     {
-        $guru = Guru::whereNull('user_id')
-            ->where('status', 'aktif')
-            ->select('id', 'nama_lengkap', 'nuptk', 'bidang_studi')
-            ->orderBy('nama_lengkap')
-            ->get();
+        $query = Guru::where('status', 'aktif')
+            ->select('id', 'nama_lengkap', 'nuptk', 'bidang_studi', 'user_id');
+        
+        // If editing, include guru that's already linked to this user
+        if ($request->has('user_id')) {
+            $query->where(function($q) use ($request) {
+                $q->whereNull('user_id')
+                  ->orWhere('user_id', $request->user_id);
+            });
+        } else {
+            $query->whereNull('user_id');
+        }
+        
+        $guru = $query->orderBy('nama_lengkap')->get();
 
         return response()->json($guru);
     }

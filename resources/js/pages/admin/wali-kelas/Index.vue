@@ -617,29 +617,41 @@ const submitEdit = async () => {
       return
     }
     
-    // Get WaliKelas ID - always fetch to ensure we have the correct ID
-    let waliKelasId = null
+    // Get WaliKelas ID - use currentWaliKelasId if available, otherwise fetch
+    let waliKelasId = currentWaliKelasId.value
     
-    try {
-      const response = await axios.get('/admin/wali-kelas/find-id', {
-        params: {
-          guru_id: selectedWaliKelas.value.guru_id,
-          kelas_id: editForm.old_kelas_id
+    // If not set, try to get from kelas data first
+    if (!waliKelasId) {
+      const kelasData = selectedWaliKelas.value.kelas_as_wali?.find(k => k.id == editForm.old_kelas_id)
+      if (kelasData && kelasData.wali_kelas_id) {
+        waliKelasId = kelasData.wali_kelas_id
+      }
+    }
+    
+    // If still not found, fetch from API
+    if (!waliKelasId) {
+      try {
+        const response = await axios.get('/admin/wali-kelas/find-id', {
+          params: {
+            guru_id: selectedWaliKelas.value.guru_id,
+            kelas_id: editForm.old_kelas_id
+          }
+        })
+        
+        if (response.data && response.data.id) {
+          waliKelasId = response.data.id
+        } else {
+          toast.error('ID wali kelas tidak ditemukan. Silakan hapus dan buat ulang penugasan.')
+          editing.value = false
+          return
         }
-      })
-      
-      if (response.data && response.data.id) {
-        waliKelasId = response.data.id
-      } else {
-        toast.error('ID wali kelas tidak ditemukan. Silakan hapus dan buat ulang penugasan.')
+      } catch (error) {
+        console.error('Error finding wali kelas ID:', error)
+        const errorMessage = error.response?.data?.message || 'Gagal menemukan data wali kelas. Silakan coba lagi.'
+        toast.error(errorMessage)
         editing.value = false
         return
       }
-    } catch (error) {
-      console.error('Error finding wali kelas ID:', error)
-      toast.error('Gagal menemukan data wali kelas. Silakan coba lagi.')
-      editing.value = false
-      return
     }
     
     if (!waliKelasId) {

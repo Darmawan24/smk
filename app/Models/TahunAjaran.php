@@ -43,13 +43,6 @@ class TahunAjaran extends Model
         return $this->hasMany(NilaiEkstrakurikuler::class);
     }
 
-    /**
-     * Get the PKL for this tahun ajaran.
-     */
-    public function pkl()
-    {
-        return $this->hasMany(Pkl::class);
-    }
 
     /**
      * Get the P5 projects for this tahun ajaran.
@@ -109,7 +102,6 @@ class TahunAjaran extends Model
      */
     public function getFullDescriptionAttribute()
     {
-        $semesterText = $this->semester == '1' ? 'Ganjil' : 'Genap';
-        return "Tahun Ajaran {$this->tahun} - Semester {$semesterText}";
+        return $this->tahun;
     }
 }

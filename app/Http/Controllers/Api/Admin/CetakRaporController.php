@@ -28,12 +28,21 @@ class CetakRaporController extends Controller
      */
     public function hasilBelajar(Request $request)
     {
+        // Get active tahun ajaran automatically
+        $tahunAjaran = TahunAjaran::where('is_active', true)->first();
+        
+        if (!$tahunAjaran) {
+            return response()->json([
+                'message' => 'Tahun ajaran aktif tidak ditemukan',
+            ], 404);
+        }
+
         $query = Rapor::with([
             'siswa.user',
             'siswa.kelas.jurusan',
             'tahunAjaran',
             'approver'
-        ]);
+        ])->where('tahun_ajaran_id', $tahunAjaran->id);
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -47,20 +56,56 @@ class CetakRaporController extends Controller
             $query->where('kelas_id', $request->kelas_id);
         }
 
-        if ($request->has('tahun_ajaran_id')) {
-            $query->where('tahun_ajaran_id', $request->tahun_ajaran_id);
+        // Filter by semester - check if siswa has nilai with this semester
+        if ($request->has('semester') && $request->semester) {
+            $query->whereHas('siswa.nilai', function ($q) use ($tahunAjaran, $request) {
+                $q->where('tahun_ajaran_id', $tahunAjaran->id)
+                  ->where('semester', $request->semester);
+            });
         }
 
         if ($request->has('status')) {
-            $query->where('status', $request->status);
+            // Map status: 'disetujui' -> 'approved', 'tidak disetujui' -> others
+            if ($request->status === 'disetujui') {
+                $query->where('status', 'approved');
+            } elseif ($request->status === 'tidak disetujui') {
+                $query->where('status', '!=', 'approved');
+            } else {
+                $query->where('status', $request->status);
+            }
         }
 
-        // Only show approved or published rapor for printing
+        // Only show approved or published rapor for printing if no status filter
         if (!$request->has('status')) {
             $query->whereIn('status', ['approved', 'published']);
         }
 
         $rapor = $query->orderBy('created_at', 'desc')->paginate($request->get('per_page', 15));
+
+        // Add semester information to each rapor
+        $rapor->getCollection()->transform(function ($item) use ($tahunAjaran, $request) {
+            // If semester filter is provided, use it
+            if ($request->has('semester') && $request->semester) {
+                $item->semester = $request->semester;
+            } else {
+                // Get the most common semester from nilai for this siswa
+                $semesterCounts = Nilai::where('siswa_id', $item->siswa_id)
+                    ->where('tahun_ajaran_id', $tahunAjaran->id)
+                    ->whereNotNull('semester')
+                    ->selectRaw('semester, COUNT(*) as count')
+                    ->groupBy('semester')
+                    ->orderByDesc('count')
+                    ->first();
+                
+                if ($semesterCounts) {
+                    $item->semester = $semesterCounts->semester;
+                } else {
+                    $item->semester = null;
+                }
+            }
+            
+            return $item;
+        });
 
         return response()->json($rapor);
     }

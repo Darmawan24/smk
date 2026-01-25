@@ -25,13 +25,11 @@
             @update:model-value="fetchRapor"
           />
           <FormField
-            v-model="filters.tahun_ajaran_id"
+            v-model="filters.semester"
             type="select"
-            label="Tahun Ajaran"
-            placeholder="Pilih Tahun Ajaran"
-            :options="tahunAjaranFilterOptions"
-            option-value="id"
-            option-label="label"
+            label="Semester"
+            placeholder="Pilih Semester"
+            :options="semesterOptions"
             @update:model-value="fetchRapor"
           />
           <FormField
@@ -72,7 +70,7 @@
                 Kelas
               </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tahun Ajaran
+                Semester
               </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
@@ -97,7 +95,7 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-gray-900">
-                  {{ rapor.tahun_ajaran ? `${rapor.tahun_ajaran.tahun} - Semester ${rapor.tahun_ajaran.semester}` : '-' }}
+                  {{ getSemesterLabel(rapor) }}
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
@@ -178,9 +176,6 @@
             <h3 class="text-lg font-medium text-gray-900">Rapor Hasil Belajar</h3>
             <p class="text-sm text-gray-500 mt-1">
               {{ selectedRapor.siswa?.nama_lengkap }} - {{ selectedRapor.kelas?.nama_kelas }}
-            </p>
-            <p class="text-sm text-gray-500">
-              Tahun Ajaran {{ selectedRapor.tahun_ajaran?.tahun }} - Semester {{ selectedRapor.tahun_ajaran?.semester }}
             </p>
           </div>
 
@@ -272,18 +267,23 @@ const selectedRapor = ref(null)
 
 const filters = ref({
   kelas_id: '',
-  tahun_ajaran_id: '',
+  semester: '',
   status: '',
   search: ''
 })
 
 const kelasOptions = ref([])
-const tahunAjaranOptions = ref([])
+
+const semesterOptions = [
+  { value: '', label: 'Semua Semester' },
+  { value: '1', label: 'Semester 1' },
+  { value: '2', label: 'Semester 2' }
+]
 
 const statusOptions = [
   { value: '', label: 'Semua Status' },
-  { value: 'approved', label: 'Disetujui' },
-  { value: 'published', label: 'Dipublikasikan' }
+  { value: 'disetujui', label: 'Disetujui' },
+  { value: 'tidak disetujui', label: 'Tidak Disetujui' }
 ]
 
 const kelasFilterOptions = computed(() => [
@@ -291,34 +291,25 @@ const kelasFilterOptions = computed(() => [
   ...kelasOptions.value
 ])
 
-const tahunAjaranFilterOptions = computed(() => [
-  { id: '', label: 'Semua Tahun Ajaran' },
-  ...tahunAjaranOptions.value.map(ta => ({
-    id: ta.id,
-    label: `${ta.tahun} - Semester ${ta.semester}`
-  }))
-])
-
 const getStatusBadge = (status) => {
-  const badges = {
-    draft: 'bg-gray-100 text-gray-800',
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    published: 'bg-blue-100 text-blue-800',
-    rejected: 'bg-red-100 text-red-800'
+  if (status === 'approved') {
+    return 'bg-green-100 text-green-800'
   }
-  return badges[status] || 'bg-gray-100 text-gray-800'
+  return 'bg-red-100 text-red-800'
 }
 
 const getStatusLabel = (status) => {
-  const labels = {
-    draft: 'Draft',
-    pending: 'Menunggu Persetujuan',
-    approved: 'Disetujui',
-    published: 'Dipublikasikan',
-    rejected: 'Ditolak'
+  if (status === 'approved') {
+    return 'Disetujui'
   }
-  return labels[status] || status
+  return 'Tidak Disetujui'
+}
+
+const getSemesterLabel = (rapor) => {
+  if (rapor.semester) {
+    return `Semester ${rapor.semester}`
+  }
+  return '-'
 }
 
 const formatDate = (dateString) => {
@@ -331,7 +322,7 @@ const fetchRapor = async (page = 1) => {
   try {
     const params = new URLSearchParams()
     if (filters.value.kelas_id) params.append('kelas_id', filters.value.kelas_id)
-    if (filters.value.tahun_ajaran_id) params.append('tahun_ajaran_id', filters.value.tahun_ajaran_id)
+    if (filters.value.semester) params.append('semester', filters.value.semester)
     if (filters.value.status) params.append('status', filters.value.status)
     if (filters.value.search) params.append('search', filters.value.search)
     params.append('page', page)
@@ -362,14 +353,6 @@ const fetchKelas = async () => {
   }
 }
 
-const fetchTahunAjaran = async () => {
-  try {
-    const response = await axios.get('/lookup/tahun-ajaran')
-    tahunAjaranOptions.value = response.data
-  } catch (error) {
-    console.error('Error fetching tahun ajaran:', error)
-  }
-}
 
 const handleSearch = () => {
   fetchRapor(1)
@@ -417,7 +400,6 @@ const downloadRapor = async (rapor) => {
 onMounted(() => {
   fetchRapor()
   fetchKelas()
-  fetchTahunAjaran()
 })
 </script>
 

@@ -189,13 +189,6 @@
               required
               :error="errors.guru_id"
             />
-            <FormField
-              v-if="isEditing"
-              v-model="form.is_active"
-              type="checkbox"
-              label="Aktif"
-              :error="errors.is_active"
-            />
           </div>
         </form>
 
@@ -266,7 +259,6 @@ const form = reactive({
   kode_mapel: '',
   nama_mapel: '',
   kkm: 75,
-  is_active: true,
   guru_id: '',
   kelas_ids: []
 })
@@ -379,7 +371,6 @@ const resetForm = () => {
   form.kode_mapel = ''
   form.nama_mapel = ''
   form.kkm = 75
-  form.is_active = true
   form.guru_id = ''
   form.kelas_ids = []
   errors.value = {}
@@ -403,7 +394,6 @@ const editMataPelajaran = async (item) => {
     form.kode_mapel = fullData.kode_mapel
     form.nama_mapel = fullData.nama_mapel
     form.kkm = fullData.kkm
-    form.is_active = fullData.is_active
     form.guru_id = fullData.guru?.id || fullData.guru_id || ''
     
     // Handle kelas - bisa array atau single object
@@ -458,7 +448,6 @@ const submitForm = async () => {
       kode_mapel: form.kode_mapel,
       nama_mapel: form.nama_mapel,
       kkm: Number.parseInt(form.kkm, 10),
-      is_active: form.is_active,
       guru_id: Number.parseInt(form.guru_id, 10),
       kelas_ids: kelasIdsArray.map(id => {
         const numId = typeof id === 'string' ? Number.parseInt(id, 10) : id

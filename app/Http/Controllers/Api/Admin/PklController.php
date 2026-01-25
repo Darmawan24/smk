@@ -84,6 +84,10 @@ class PklController extends Controller
 
         DB::beginTransaction();
         try {
+            // Ensure jurusan_id is cast to integer
+            $validated['jurusan_id'] = (int) $validated['jurusan_id'];
+            $validated['pembimbing_sekolah_id'] = (int) $validated['pembimbing_sekolah_id'];
+            
             $pkl = Pkl::create($validated);
 
             DB::commit();

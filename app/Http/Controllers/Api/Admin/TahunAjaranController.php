@@ -37,7 +37,6 @@ class TahunAjaranController extends Controller
         }
 
         $tahunAjaran = $query->orderBy('tahun', 'desc')
-            ->orderBy('semester', 'desc')
             ->paginate($request->get('per_page', 15));
 
         return response()->json($tahunAjaran);
@@ -51,37 +50,80 @@ class TahunAjaranController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'tahun' => ['required', 'string', 'max:255'],
-            'semester' => ['required', 'string', Rule::in(['1', '2'])],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
-
-        DB::beginTransaction();
-        try {
-            // If setting as active, deactivate all others
-            if ($request->has('is_active') && $request->is_active) {
-                TahunAjaran::where('is_active', true)->update(['is_active' => false]);
-            }
-
-            $tahunAjaran = TahunAjaran::create([
-                'tahun' => $validated['tahun'],
-                'semester' => $validated['semester'],
-                'is_active' => $validated['is_active'] ?? false,
+        // Check if this is the new format (with active_semester only)
+        if ($request->has('active_semester')) {
+            $validated = $request->validate([
+                'tahun' => ['required', 'string', 'max:255'],
+                'active_semester' => ['required', Rule::in(['1', '2'])],
             ]);
 
-            DB::commit();
+            DB::beginTransaction();
+            try {
+                $activeSemester = $validated['active_semester'];
 
-            return response()->json([
-                'message' => 'Tahun ajaran berhasil ditambahkan',
-                'data' => $tahunAjaran,
-            ], 201);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Gagal menambahkan tahun ajaran',
-                'error' => $e->getMessage(),
-            ], 500);
+                // If setting as active, deactivate all others
+                TahunAjaran::where('is_active', true)->update(['is_active' => false]);
+
+                // Always create both semesters
+                $tahunAjaran1 = TahunAjaran::create([
+                    'tahun' => $validated['tahun'],
+                    'semester' => '1',
+                    'is_active' => ($activeSemester === '1'),
+                ]);
+
+                $tahunAjaran2 = TahunAjaran::create([
+                    'tahun' => $validated['tahun'],
+                    'semester' => '2',
+                    'is_active' => ($activeSemester === '2'),
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'message' => 'Tahun ajaran berhasil ditambahkan',
+                    'data' => [$tahunAjaran1, $tahunAjaran2],
+                ], 201);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Gagal menambahkan tahun ajaran',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        } else {
+            // Old format (backward compatibility)
+            $validated = $request->validate([
+                'tahun' => ['required', 'string', 'max:255'],
+                'semester' => ['required', Rule::in(['1', '2'])],
+                'is_active' => ['nullable', 'boolean'],
+            ]);
+
+            DB::beginTransaction();
+            try {
+                // If setting as active, deactivate all others
+                if ($request->has('is_active') && $request->is_active) {
+                    TahunAjaran::where('is_active', true)->update(['is_active' => false]);
+                }
+
+                $tahunAjaran = TahunAjaran::create([
+                    'tahun' => $validated['tahun'],
+                    'semester' => $validated['semester'],
+                    'is_active' => $validated['is_active'] ?? false,
+                ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'message' => 'Tahun ajaran berhasil ditambahkan',
+                    'data' => $tahunAjaran,
+                ], 201);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Gagal menambahkan tahun ajaran',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
         }
     }
 
@@ -105,33 +147,89 @@ class TahunAjaranController extends Controller
      */
     public function update(Request $request, TahunAjaran $tahunAjaran)
     {
-        $validated = $request->validate([
-            'tahun' => ['sometimes', 'string', 'max:255'],
-            'semester' => ['sometimes', 'string', Rule::in(['1', '2'])],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
-
-        DB::beginTransaction();
-        try {
-            // If setting as active, deactivate all others
-            if ($request->has('is_active') && $request->is_active && !$tahunAjaran->is_active) {
-                TahunAjaran::where('is_active', true)->update(['is_active' => false]);
-            }
-
-            $tahunAjaran->update($validated);
-
-            DB::commit();
-
-            return response()->json([
-                'message' => 'Tahun ajaran berhasil diperbarui',
-                'data' => $tahunAjaran,
+        // Check if this is a request to change active semester
+        if ($request->has('active_semester')) {
+            $validated = $request->validate([
+                'active_semester' => ['required', Rule::in(['1', '2'])],
             ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Gagal memperbarui tahun ajaran',
-                'error' => $e->getMessage(),
-            ], 500);
+
+            DB::beginTransaction();
+            try {
+                $newActiveSemester = $validated['active_semester'];
+                $currentTahun = $tahunAjaran->tahun;
+                
+                // Deactivate all tahun ajaran first
+                TahunAjaran::where('is_active', true)->update(['is_active' => false]);
+                
+                // Find the record with same tahun but the selected semester
+                $targetTahunAjaran = TahunAjaran::where('tahun', $currentTahun)
+                    ->where('semester', $newActiveSemester)
+                    ->first();
+                
+                if ($targetTahunAjaran) {
+                    // Activate the target record (the one with selected semester)
+                    $targetTahunAjaran->update(['is_active' => true]);
+                    
+                    // Ensure current record is inactive (if it's not the target)
+                    if ($tahunAjaran->id != $targetTahunAjaran->id) {
+                        $tahunAjaran->update(['is_active' => false]);
+                    }
+                    
+                    // Return the activated record
+                    $targetTahunAjaran->refresh();
+                    
+                    DB::commit();
+                    
+                    return response()->json([
+                        'message' => 'Tahun ajaran berhasil diperbarui',
+                        'data' => $targetTahunAjaran,
+                    ]);
+                } else {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Tahun ajaran dengan semester yang dipilih tidak ditemukan',
+                    ], 404);
+                }
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Gagal memperbarui tahun ajaran',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        } else {
+            // Normal update
+            $validated = $request->validate([
+                'tahun' => ['sometimes', 'string', 'max:255'],
+                'semester' => ['sometimes', Rule::in(['1', '2'])],
+                'is_active' => ['nullable', 'boolean'],
+            ]);
+
+            DB::beginTransaction();
+            try {
+                // If setting as active, deactivate all others first
+                if ($request->has('is_active') && $request->is_active) {
+                    TahunAjaran::where('is_active', true)->update(['is_active' => false]);
+                }
+                
+                $tahunAjaran->update($validated);
+
+                DB::commit();
+
+                // Reload the updated record
+                $tahunAjaran->refresh();
+
+                return response()->json([
+                    'message' => 'Tahun ajaran berhasil diperbarui',
+                    'data' => $tahunAjaran,
+                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Gagal memperbarui tahun ajaran',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
         }
     }
 
@@ -155,7 +253,6 @@ class TahunAjaranController extends Controller
             // Check if tahun ajaran has related data
             $hasRelatedData = $tahunAjaran->nilai()->exists() ||
                              $tahunAjaran->nilaiEkstrakurikuler()->exists() ||
-                             $tahunAjaran->pkl()->exists() ||
                              $tahunAjaran->p5()->exists() ||
                              $tahunAjaran->kehadiran()->exists() ||
                              $tahunAjaran->ukk()->exists() ||

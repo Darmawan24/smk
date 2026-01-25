@@ -1,38 +1,45 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8">
-      <div>
-        <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-600">
-          <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-          </svg>
+  <div class="min-h-screen flex items-center justify-center relative bg-cover bg-center bg-no-repeat" :style="{ backgroundImage: `url(${backgroundImage})` }">
+    <!-- Overlay untuk membuat background sedikit lebih gelap agar form lebih readable -->
+    <div class="absolute inset-0 bg-black bg-opacity-30"></div>
+    
+    <!-- Login Form Container -->
+    <div class="relative z-10 w-full max-w-md px-4">
+      <div class="bg-white rounded-lg shadow-2xl overflow-hidden">
+        <!-- Red Banner: SMK PROGRESIA -->
+        <div class="bg-red-600 text-white text-center py-2 px-4">
+          <h1 class="text-sm font-bold">SMK PROGRESIA CIANJUR</h1>
         </div>
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          PNRKM
-        </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
-          Pengolahan Nilai Rapor Kurikulum Merdeka
-        </p>
-      </div>
-
-      <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
-        <div class="rounded-md shadow-sm -space-y-px">
-          <div>
-            <label for="email" class="sr-only">Email</label>
+        
+        <!-- Logo Section -->
+        <div class="flex flex-col items-center py-4 px-6">
+          <img :src="logoImage" alt="Logo SMK Progresia" class="h-20 w-20 object-contain mb-2">
+          
+          <!-- Title: SI Rapor Kurmer -->
+          <h2 class="text-xl font-bold text-gray-900">SI Rapor Kurmer</h2>
+        </div>
+        
+        <!-- Form Section -->
+        <form class="px-6 pb-6 space-y-4" @submit.prevent="handleLogin">
+          <!-- Username Field -->
+          <div class="flex items-center space-x-3">
+            <label for="email" class="text-sm font-medium text-gray-700 w-20">Username</label>
             <input 
               id="email" 
               v-model="form.email"
               name="email" 
-              type="email" 
-              autocomplete="email" 
+              type="text" 
+              autocomplete="username" 
               required 
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
-              placeholder="Email"
+              class="flex-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+              placeholder="Masukkan username"
               :class="{ 'border-red-300': errors.email }"
             >
           </div>
-          <div>
-            <label for="password" class="sr-only">Password</label>
+          
+          <!-- Password Field -->
+          <div class="flex items-center space-x-3">
+            <label for="password" class="text-sm font-medium text-gray-700 w-20">Password</label>
             <input 
               id="password" 
               v-model="form.password"
@@ -40,100 +47,54 @@
               type="password" 
               autocomplete="current-password" 
               required 
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
-              placeholder="Password"
+              class="flex-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
+              placeholder="Masukkan password"
               :class="{ 'border-red-300': errors.password }"
             >
           </div>
-        </div>
 
-        <!-- Error messages -->
-        <div v-if="errors.email || errors.password" class="rounded-md bg-red-50 p-4">
-          <div class="flex">
-            <div class="flex-shrink-0">
-              <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-              </svg>
-            </div>
-            <div class="ml-3">
-              <h3 class="text-sm font-medium text-red-800">
-                Terjadi kesalahan saat login
-              </h3>
-              <div class="mt-2 text-sm text-red-700">
-                <ul class="list-disc pl-5 space-y-1">
-                  <li v-if="errors.email">{{ errors.email[0] }}</li>
-                  <li v-if="errors.password">{{ errors.password[0] }}</li>
-                  <li v-if="errors.general">{{ errors.general }}</li>
-                </ul>
+          <!-- Error messages -->
+          <div v-if="errors.email || errors.password || errors.general" class="rounded-md bg-red-50 p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">
+                  Terjadi kesalahan saat login
+                </h3>
+                <div class="mt-2 text-sm text-red-700">
+                  <ul class="list-disc pl-5 space-y-1">
+                    <li v-if="errors.email">{{ errors.email[0] }}</li>
+                    <li v-if="errors.password">{{ errors.password[0] }}</li>
+                    <li v-if="errors.general">{{ errors.general }}</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="flex items-center justify-between">
-          <div class="flex items-center">
-            <input id="remember-me" v-model="form.remember" name="remember-me" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-            <label for="remember-me" class="ml-2 block text-sm text-gray-900">
-              Ingat saya
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <button 
-            type="submit" 
-            :disabled="loading"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-              <svg v-if="loading" class="animate-spin h-5 w-5 text-blue-300" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <svg v-else class="h-5 w-5 text-blue-500 group-hover:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
-              </svg>
-            </span>
-            {{ loading ? 'Memproses...' : 'Masuk' }}
-          </button>
-        </div>
-
-        <!-- Demo accounts -->
-        <div class="mt-6">
-          <div class="relative">
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-gray-300"></div>
-            </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-2 bg-gray-50 text-gray-500">Demo Akun</span>
-            </div>
-          </div>
-
-          <div class="mt-6 grid grid-cols-1 gap-3">
+          <!-- Login Button -->
+          <div>
             <button 
-              type="button"
-              @click="loginDemo('admin')"
-              class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+              type="submit" 
+              :disabled="loading"
+              class="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Login sebagai Admin
-            </button>
-            <button 
-              type="button"
-              @click="loginDemo('guru')"
-              class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              Login sebagai Guru
-            </button>
-            <button 
-              type="button"
-              @click="loginDemo('siswa')"
-              class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              Login sebagai Siswa
+              <span v-if="loading" class="flex items-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Memproses...
+              </span>
+              <span v-else>Masuk</span>
             </button>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
 </template>
@@ -143,6 +104,10 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from 'vue-toastification'
+
+// Image paths from public folder
+const logoImage = '/images/logo.jpeg'
+const backgroundImage = '/images/background.jpeg'
 
 const router = useRouter()
 const authStore = useAuthStore()

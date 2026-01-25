@@ -88,19 +88,42 @@
       <Modal v-model:show="showForm" :title="isEditing ? 'Edit Siswa' : 'Tambah Siswa'" size="lg">
         <form @submit.prevent="submitForm" id="siswa-form" class="space-y-4">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField
-              v-model="form.nis"
-              label="NIS"
-              placeholder="Masukkan NIS"
-              required
-              :error="errors.nis"
-            />
-            <FormField
-              v-model="form.nisn"
-              label="NISN"
-              placeholder="Masukkan NISN"
-              :error="errors.nisn"
-            />
+            <div class="space-y-1">
+              <label for="nis" class="block text-sm font-medium text-gray-700">
+                NIS <span class="text-red-500">*</span>
+              </label>
+              <div class="relative">
+                <input
+                  id="nis"
+                  v-model="form.nis"
+                  type="text"
+                  placeholder="Masukkan NIS"
+                  required
+                  @input="handleNisInput"
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  :class="{ 'border-red-300 focus:border-red-500 focus:ring-red-500': errors.nis }"
+                />
+              </div>
+              <p v-if="errors.nis" class="text-sm text-red-600">{{ errors.nis }}</p>
+            </div>
+            <div class="space-y-1">
+              <label for="nisn" class="block text-sm font-medium text-gray-700">
+                NISN <span class="text-red-500">*</span>
+              </label>
+              <div class="relative">
+                <input
+                  id="nisn"
+                  v-model="form.nisn"
+                  type="text"
+                  placeholder="Masukkan NISN"
+                  required
+                  @input="handleNisnInput"
+                  class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  :class="{ 'border-red-300 focus:border-red-500 focus:ring-red-500': errors.nisn }"
+                />
+              </div>
+              <p v-if="errors.nisn" class="text-sm text-red-600">{{ errors.nisn }}</p>
+            </div>
             <FormField
               v-model="form.nama_lengkap"
               label="Nama Lengkap"
@@ -183,6 +206,18 @@
               label="Nama Ibu"
               placeholder="Masukkan nama ibu"
               :error="errors.nama_ibu"
+            />
+            <FormField
+              v-model="form.pekerjaan_ayah"
+              label="Pekerjaan Ayah"
+              placeholder="Masukkan pekerjaan ayah"
+              :error="errors.pekerjaan_ayah"
+            />
+            <FormField
+              v-model="form.pekerjaan_ibu"
+              label="Pekerjaan Ibu"
+              placeholder="Masukkan pekerjaan ibu"
+              :error="errors.pekerjaan_ibu"
             />
             <FormField
               v-model="form.no_hp_ortu"
@@ -306,6 +341,8 @@ const form = reactive({
   no_hp: '',
   nama_ayah: '',
   nama_ibu: '',
+  pekerjaan_ayah: '',
+  pekerjaan_ibu: '',
   no_hp_ortu: '',
   kelas_id: '',
   status: 'aktif'
@@ -405,11 +442,29 @@ const closeForm = () => {
   resetForm()
 }
 
+const formatDateForInput = (date) => {
+  if (!date) return ''
+  // If already in YYYY-MM-DD format, return as is
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date
+  }
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const editSiswa = (siswa) => {
   isEditing.value = true
   selectedSiswa.value = siswa
   Object.keys(form).forEach(key => {
-    form[key] = siswa[key] || ''
+    if (key === 'tanggal_lahir' || key === 'tanggal_masuk') {
+      form[key] = formatDateForInput(siswa[key])
+    } else {
+      form[key] = siswa[key] || ''
+    }
   })
   showForm.value = true
 }
@@ -510,6 +565,20 @@ const getStatusBadge = (status) => {
     keluar: 'bg-red-100 text-red-800'
   }
   return badges[status] || 'bg-gray-100 text-gray-800'
+}
+
+const handleNisInput = (event) => {
+  // Only allow numbers
+  const value = event.target.value.replace(/[^0-9]/g, '')
+  form.nis = value
+  event.target.value = value
+}
+
+const handleNisnInput = (event) => {
+  // Only allow numbers
+  const value = event.target.value.replace(/[^0-9]/g, '')
+  form.nisn = value
+  event.target.value = value
 }
 
 // Lifecycle

@@ -57,7 +57,7 @@
 
         <template #cell-tahun_ajaran="{ item }">
           <div class="text-sm text-gray-900">
-            {{ item.tahun_ajaran ? `${item.tahun_ajaran.tahun} - Semester ${item.tahun_ajaran.semester}` : '-' }}
+            {{ item.tahun_ajaran?.tahun || '-' }}
           </div>
         </template>
 
@@ -180,7 +180,7 @@ const tahunAjaranFilterOptions = computed(() => [
   { id: '', label: 'Semua Tahun Ajaran' },
   ...tahunAjaranOptions.value.map(ta => ({
     id: ta.id,
-    label: `${ta.tahun} - Semester ${ta.semester}`
+    label: ta.tahun
   }))
 ])
 
