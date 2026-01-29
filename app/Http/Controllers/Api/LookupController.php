@@ -46,7 +46,7 @@ class LookupController extends Controller
 
     /**
      * Get all mata pelajaran for dropdown.
-     * If user is guru or wali_kelas, only return mata pelajaran assigned to that guru.
+     * If user is guru, only return mata pelajaran assigned to that guru.
      * If kelas_id is provided, filter by kelas_id to avoid duplicates.
      */
     public function mataPelajaran(Request $request)
@@ -54,9 +54,8 @@ class LookupController extends Controller
         $query = MataPelajaran::where('is_active', true)
             ->select('id', 'kode_mapel', 'nama_mapel', 'kelompok', 'kelas_id', 'kkm');
 
-        // If user is guru or wali_kelas, filter by guru_id
         $user = Auth::user();
-        if ($user && ($user->role === 'guru' || $user->role === 'wali_kelas') && $user->guru) {
+        if ($user && $user->role === 'guru' && $user->guru) {
             $query->where('guru_id', $user->guru->id);
         }
 
@@ -71,14 +70,13 @@ class LookupController extends Controller
 
     /**
      * Get all guru for dropdown.
-     * If user is guru or wali_kelas, return only current user's guru data.
+     * If user is guru, return only current user's guru data.
      */
     public function guru()
     {
         $user = Auth::user();
-        
-        // If user is guru or wali_kelas, return only their guru data
-        if ($user && ($user->role === 'guru' || $user->role === 'wali_kelas') && $user->guru) {
+
+        if ($user && $user->role === 'guru' && $user->guru) {
             return response()->json([
                 'id' => $user->guru->id,
                 'nuptk' => $user->guru->nuptk,

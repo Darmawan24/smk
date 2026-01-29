@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'wali_kelas' => \App\Http\Middleware\EnsureUserIsWaliKelas::class,
         ]);
         
         $middleware->api(prepend: [

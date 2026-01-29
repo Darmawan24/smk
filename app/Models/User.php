@@ -131,13 +131,13 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user is wali kelas.
+     * Check if user is wali kelas (guru with active WaliKelas assignment).
      *
      * @return bool
      */
     public function isWaliKelas()
     {
-        return $this->role === 'wali_kelas';
+        return $this->guru && $this->guru->waliKelasAktif()->exists();
     }
 
     /**

@@ -333,7 +333,6 @@ const columns = [
 // Options
 const roleOptions = [
   { value: 'guru', label: 'Guru' },
-  { value: 'wali_kelas', label: 'Wali Kelas' },
   { value: 'kepala_sekolah', label: 'Kepala Sekolah' }
 ]
 
@@ -415,7 +414,6 @@ const onUserSelect = (userId) => {
 const getRoleLabel = (role) => {
   const roleMap = {
     'guru': 'Guru',
-    'wali_kelas': 'Wali Kelas',
     'kepala_sekolah': 'Kepala Sekolah'
   }
   return roleMap[role] || role
@@ -602,7 +600,6 @@ const handleNuptkInput = (event) => {
 const formatRole = (role) => {
   const roleMap = {
     guru: 'Guru',
-    wali_kelas: 'Wali Kelas',
     kepala_sekolah: 'Kepala Sekolah'
   }
   return roleMap[role] || role
@@ -620,7 +617,6 @@ const formatStatus = (status) => {
 const getRoleBadge = (role) => {
   const badges = {
     guru: 'bg-blue-100 text-blue-800',
-    wali_kelas: 'bg-indigo-100 text-indigo-800',
     kepala_sekolah: 'bg-yellow-100 text-yellow-800'
   }
   return badges[role] || 'bg-gray-100 text-gray-800'

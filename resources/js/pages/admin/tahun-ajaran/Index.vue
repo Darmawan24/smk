@@ -106,7 +106,7 @@
               </label>
             </div>
             <p class="mt-1 text-xs text-gray-500">
-              <span v-if="!isEditing">Pilih semester yang akan diaktifkan. Sistem akan otomatis membuat tahun ajaran untuk Semester 1 dan Semester 2.</span>
+              <span v-if="!isEditing">Pilih semester yang akan diaktifkan. Sistem hanya membuat semester yang belum ada (jika sudah ada Semester 1, yang ditambah hanya Semester 2).</span>
               <span v-if="isEditing">Pilih semester yang akan diaktifkan untuk tahun ajaran ini.</span>
               Jika diaktifkan, tahun ajaran lain akan otomatis dinonaktifkan.
             </p>

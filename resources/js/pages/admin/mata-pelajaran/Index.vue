@@ -21,34 +21,6 @@
           </button>
         </template>
 
-        <template #filters>
-          <FormField
-            v-model="filters.guru_id"
-            type="select"
-            placeholder="Pilih Guru"
-            :options="guruFilterOptions"
-            option-value="id"
-            option-label="name"
-            @update:model-value="fetchMataPelajaran"
-          />
-          <FormField
-            v-model="filters.kelas_id"
-            type="select"
-            placeholder="Pilih Kelas"
-            :options="kelasFilterOptions"
-            option-value="id"
-            option-label="nama_kelas"
-            @update:model-value="fetchMataPelajaran"
-          />
-          <FormField
-            v-model="filters.is_active"
-            type="select"
-            placeholder="Status"
-            :options="statusOptions"
-            @update:model-value="fetchMataPelajaran"
-          />
-        </template>
-
         <template #cell-kode_mapel="{ item }">
           <div class="flex items-center">
             <div class="h-10 w-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-medium">
@@ -267,10 +239,7 @@ const errors = ref({})
 
 // Filters
 const filters = reactive({
-  search: '',
-  guru_id: '',
-  kelas_id: '',
-  is_active: ''
+  search: ''
 })
 
 // Table columns
@@ -283,17 +252,8 @@ const columns = [
   { key: 'statistik', label: 'Statistik' }
 ]
 
-// Options
-const statusOptions = [
-  { value: '', label: 'Semua Status' },
-  { value: 'true', label: 'Aktif' },
-  { value: 'false', label: 'Nonaktif' }
-]
-
 const guruOptions = ref([])
 const kelasOptions = ref([])
-const guruFilterOptions = ref([{ id: '', name: 'Semua Guru' }])
-const kelasFilterOptions = ref([{ id: '', nama_kelas: 'Semua Kelas' }])
 
 // Methods
 const fetchMataPelajaran = async () => {
@@ -301,9 +261,6 @@ const fetchMataPelajaran = async () => {
     loading.value = true
     const params = new URLSearchParams()
     if (filters.search) params.append('search', filters.search)
-    if (filters.guru_id) params.append('guru_id', filters.guru_id)
-    if (filters.kelas_id) params.append('kelas_id', filters.kelas_id)
-    if (filters.is_active) params.append('is_active', filters.is_active)
     params.append('per_page', 100)
     
     const response = await axios.get(`/admin/mata-pelajaran?${params}`)
@@ -332,13 +289,6 @@ const fetchGuru = async () => {
     })
     if (response.data.data) {
       guruOptions.value = response.data.data
-      guruFilterOptions.value = [
-        { id: '', name: 'Semua Guru' },
-        ...response.data.data.map(g => ({
-          id: g.id,
-          name: `${g.nama_lengkap}${g.nuptk ? ' - ' + g.nuptk : ''}`
-        }))
-      ]
     }
   } catch (error) {
     console.error('Failed to fetch guru:', error)
@@ -354,13 +304,6 @@ const fetchKelas = async () => {
     })
     if (response.data.data) {
       kelasOptions.value = response.data.data
-      kelasFilterOptions.value = [
-        { id: '', nama_kelas: 'Semua Kelas' },
-        ...response.data.data.map(k => ({
-          id: k.id,
-          nama_kelas: `${k.nama_kelas} - ${k.jurusan?.nama_jurusan}`
-        }))
-      ]
     }
   } catch (error) {
     console.error('Failed to fetch kelas:', error)

@@ -21,25 +21,6 @@
           </button>
         </template>
 
-        <template #filters>
-          <FormField
-            v-model="filters.jurusan_id"
-            type="select"
-            placeholder="Pilih Jurusan"
-            :options="jurusanFilterOptions"
-            option-value="id"
-            option-label="label"
-            @update:model-value="fetchPkl"
-          />
-          <FormField
-            v-model="filters.status"
-            type="select"
-            placeholder="Status PKL"
-            :options="statusOptions"
-            @update:model-value="fetchPkl"
-          />
-        </template>
-
         <template #cell-perusahaan="{ item }">
           <div class="text-sm">
             <div class="font-medium text-gray-900">{{ item.nama_perusahaan }}</div>
@@ -71,13 +52,6 @@
             <div class="text-xs text-gray-500">{{ getDuration(item.tanggal_mulai, item.tanggal_selesai) }}</div>
           </div>
         </template>
-
-        <template #cell-status_pkl="{ item }">
-          <span :class="getStatusBadge(item.status)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
-            {{ item.status }}
-          </span>
-        </template>
-
 
         <template #row-actions="{ item }">
           <div class="flex items-center space-x-2">
@@ -225,9 +199,7 @@ const errors = ref({})
 
 // Filters
 const filters = reactive({
-  search: '',
-  jurusan_id: '',
-  status: ''
+  search: ''
 })
 
 // Table columns
@@ -235,20 +207,10 @@ const columns = [
   { key: 'perusahaan', label: 'Perusahaan', sortable: true },
   { key: 'jurusan', label: 'Jurusan' },
   { key: 'pembimbing_sekolah', label: 'Pembimbing Sekolah' },
-  { key: 'periode', label: 'Periode' },
-  { key: 'status_pkl', label: 'Status' }
-]
-
-// Options
-const statusOptions = [
-  { value: '', label: 'Semua Status' },
-  { value: 'belum_mulai', label: 'Belum Mulai' },
-  { value: 'sedang_berlangsung', label: 'Sedang Berlangsung' },
-  { value: 'selesai', label: 'Selesai' }
+  { key: 'periode', label: 'Periode' }
 ]
 
 const jurusanOptions = ref([])
-const jurusanFilterOptions = ref([{ id: '', label: 'Semua Jurusan' }])
 const guruOptions = ref([])
 
 // Methods
@@ -257,8 +219,6 @@ const fetchPkl = async () => {
     loading.value = true
     const params = new URLSearchParams()
     if (filters.search) params.append('search', filters.search)
-    if (filters.jurusan_id) params.append('jurusan_id', filters.jurusan_id)
-    if (filters.status) params.append('status', filters.status)
     params.append('per_page', 100)
 
     const response = await axios.get(`/admin/pkl?${params}`)
@@ -290,13 +250,6 @@ const fetchJurusan = async () => {
         value: j.id,
         label: j.nama_jurusan
       }))
-      jurusanFilterOptions.value = [
-        { id: '', label: 'Semua Jurusan' },
-        ...response.data.data.map(j => ({
-          id: j.id,
-          label: j.nama_jurusan
-        }))
-      ]
     }
   } catch (error) {
     console.error('Failed to fetch jurusan:', error)
@@ -431,15 +384,6 @@ const getDuration = (start, end) => {
     return `${months} bulan ${days} hari`
   }
   return `${diffDays} hari`
-}
-
-const getStatusBadge = (status) => {
-  const badgeMap = {
-    'Belum Mulai': 'bg-yellow-100 text-yellow-800',
-    'Sedang Berlangsung': 'bg-blue-100 text-blue-800',
-    'Selesai': 'bg-green-100 text-green-800'
-  }
-  return badgeMap[status] || 'bg-gray-100 text-gray-800'
 }
 
 const fetchGuru = async () => {

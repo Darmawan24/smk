@@ -26,6 +26,7 @@ import MataPelajaranIndex from './pages/admin/mata-pelajaran/Index.vue'
 import EkstrakurikulerIndex from './pages/admin/ekstrakurikuler/Index.vue'
 import PklIndex from './pages/admin/pkl/Index.vue'
 import UkkIndex from './pages/admin/ukk/Index.vue'
+import UkkEventsIndex from './pages/admin/ukk-events/Index.vue'
 import AdminP5Index from './pages/admin/p5/Index.vue'
 import CetakRaporHasilBelajarIndex from './pages/admin/cetak-rapor/hasil-belajar/Index.vue'
 import CetakRaporP5Index from './pages/admin/cetak-rapor/p5/Index.vue'
@@ -190,6 +191,11 @@ const routes = [
         component: PklIndex
       },
       {
+        path: 'ukk-events',
+        name: 'admin.ukk-events.index',
+        component: UkkEventsIndex
+      },
+      {
         path: 'ukk',
         name: 'admin.ukk.index',
         component: UkkIndex
@@ -260,10 +266,10 @@ const routes = [
     ]
   },
 
-  // Wali Kelas routes
+  // Wali Kelas routes (guru with active wali kelas assignment only)
   {
     path: '/wali-kelas',
-    meta: { requiresAuth: true, role: 'wali_kelas' },
+    meta: { requiresAuth: true, waliKelasOnly: true },
     children: [
       {
         path: '',
@@ -590,22 +596,45 @@ router.beforeEach(async (to, from, next) => {
     return
   }
   
-      // Role doesn't match - redirect to user's default route
-      // But only if we're not already on a route that starts with the default route
       const defaultRoute = authStore.getDefaultRoute()
-      // Check if current path is already within the correct role's routes
       if (to.path.startsWith(defaultRoute)) {
-        // Already on a route for this role (maybe child route), allow it
         next()
       } else {
-        // Wrong role, redirect to default route
         next(defaultRoute)
       }
-    return
-  }
-  
-    // No role requirement, allow navigation
-  next()
+      return
+    }
+
+    // Wali-kelas routes: guru with active wali kelas assignment only
+    if (to.meta.waliKelasOnly) {
+      if (authStore.userLoading) {
+        while (authStore.userLoading) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+        }
+      }
+      if (authStore.isAuthenticated && !authStore.user) {
+        try {
+          await authStore.getUser()
+        } catch (e) {
+          console.error('Get user error:', e)
+          if (!to.path.startsWith('/login')) next('/login')
+          else next()
+          return
+        }
+      }
+      if (!authStore.user) {
+        next('/login')
+        return
+      }
+      if (authStore.user.role === 'guru' && authStore.isWaliKelas) {
+        next()
+        return
+      }
+      next(authStore.getDefaultRoute())
+      return
+    }
+
+    next()
   } catch (error) {
     console.error('Router guard error:', error)
     const authStore = useAuthStore()

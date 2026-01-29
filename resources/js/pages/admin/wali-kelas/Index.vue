@@ -21,27 +21,6 @@
           </button>
         </template>
 
-        <template #filters>
-          <FormField
-            v-model="filters.kelas_id"
-            type="select"
-            placeholder="Pilih Kelas"
-            :options="kelasOptions"
-            option-value="id"
-            option-label="nama_kelas"
-            @update:model-value="fetchWaliKelas"
-          />
-          <FormField
-            v-model="filters.jurusan_id"
-            type="select"
-            placeholder="Pilih Jurusan"
-            :options="jurusanOptions"
-            option-value="id"
-            option-label="nama_jurusan"
-            @update:model-value="fetchWaliKelas"
-          />
-        </template>
-
         <template #cell-name="{ item }">
           <div class="flex items-center">
             <div class="h-10 w-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-medium">
@@ -83,12 +62,6 @@
 
         <template #row-actions="{ item }">
           <div class="flex items-center space-x-2">
-            <button @click="viewDetail(item)" class="text-green-600 hover:text-green-900" title="Detail">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-              </svg>
-            </button>
             <button @click="editWaliKelas(item)" class="text-blue-600 hover:text-blue-900" title="Edit">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -149,69 +122,6 @@
             {{ submitting ? 'Menyimpan...' : 'Tetapkan' }}
           </button>
           <button type="button" @click="closeAssignForm" class="btn btn-secondary mr-3">Batal</button>
-        </template>
-      </Modal>
-
-      <!-- Detail Modal -->
-      <Modal v-model:show="showDetailModal" :title="`Detail Wali Kelas - ${selectedWaliKelas?.name}`" size="lg">
-        <div v-if="loadingDetail" class="p-8 text-center">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p class="mt-2 text-sm text-gray-500">Memuat data...</p>
-        </div>
-        <div v-else-if="waliKelasDetail" class="space-y-6">
-          <div>
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Informasi Wali Kelas</h3>
-            <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <dt class="text-sm font-medium text-gray-500">Nama</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ waliKelasDetail.name }}</dd>
-              </div>
-              <div>
-                <dt class="text-sm font-medium text-gray-500">Email</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ waliKelasDetail.email }}</dd>
-              </div>
-              <div>
-                <dt class="text-sm font-medium text-gray-500">NIP</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ waliKelasDetail.guru?.nuptk || '-' }}</dd>
-              </div>
-              <div>
-                <dt class="text-sm font-medium text-gray-500">Role</dt>
-                <dd class="mt-1 text-sm text-gray-900">{{ formatRole(waliKelasDetail.role) }}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div class="border-t border-gray-200 pt-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Statistik</h3>
-            <dl class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div class="bg-blue-50 p-4 rounded-lg">
-                <dt class="text-sm font-medium text-blue-600">Total Kelas</dt>
-                <dd class="mt-1 text-2xl font-semibold text-blue-900">{{ waliKelasDetail.total_kelas || 0 }}</dd>
-              </div>
-              <div class="bg-green-50 p-4 rounded-lg">
-                <dt class="text-sm font-medium text-green-600">Total Siswa</dt>
-                <dd class="mt-1 text-2xl font-semibold text-green-900">{{ waliKelasDetail.total_siswa || 0 }}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div v-if="waliKelasDetail.kelas_as_wali && waliKelasDetail.kelas_as_wali.length > 0" class="border-t border-gray-200 pt-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Kelas yang Diampu</h3>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div v-for="kelas in waliKelasDetail.kelas_as_wali" :key="kelas.id" class="bg-gray-50 p-4 rounded-lg">
-                <div class="text-sm font-medium text-gray-900">{{ kelas.nama_kelas }}</div>
-                <div class="text-xs text-gray-500 mt-1">{{ kelas.jurusan?.nama_jurusan }}</div>
-                <div class="text-xs text-gray-500 mt-1">Tingkat {{ kelas.tingkat }}</div>
-                <div class="text-xs text-gray-500 mt-1">
-                  Siswa: {{ kelas.active_siswa_count || 0 }} / {{ kelas.kapasitas }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <template #footer>
-          <button @click="showDetailModal = false" class="btn btn-secondary">Tutup</button>
         </template>
       </Modal>
 
@@ -319,12 +229,9 @@ const toast = useToast()
 
 // Data
 const waliKelas = ref([])
-const waliKelasDetail = ref(null)
 const guruOptions = ref([])
 const kelasOptions = ref([])
-const jurusanOptions = ref([])
 const loading = ref(true)
-const loadingDetail = ref(false)
 const submitting = ref(false)
 const editing = ref(false)
 const removing = ref(false)
@@ -332,7 +239,6 @@ const removing = ref(false)
 // Form state
 const showAssignForm = ref(false)
 const showEditForm = ref(false)
-const showDetailModal = ref(false)
 const showRemoveModal = ref(false)
 const selectedWaliKelas = ref(null)
 const currentWaliKelasId = ref(null)
@@ -358,9 +264,7 @@ const removeErrors = ref({})
 
 // Filters
 const filters = reactive({
-  search: '',
-  kelas_id: '',
-  jurusan_id: ''
+  search: ''
 })
 
 // Table columns
@@ -387,8 +291,6 @@ const fetchWaliKelas = async () => {
     loading.value = true
     const params = new URLSearchParams()
     if (filters.search) params.append('search', filters.search)
-    if (filters.kelas_id) params.append('kelas_id', filters.kelas_id)
-    if (filters.jurusan_id) params.append('jurusan_id', filters.jurusan_id)
     params.append('per_page', 100)
     
     const response = await axios.get(`/admin/wali-kelas?${params}`)
@@ -418,10 +320,10 @@ const fetchGuru = async () => {
     
     if (response.data.data) {
       guruOptions.value = response.data.data
-        .filter(g => ['wali_kelas', 'guru', 'kepala_sekolah'].includes(g.user?.role))
+        .filter(g => g.user?.role === 'guru')
         .map(g => ({
           id: g.id,
-          name: `${g.nama_lengkap}${g.nuptk ? ' - ' + g.nuptk : ''} (${formatRole(g.user?.role)})`,
+          name: `${g.nama_lengkap}${g.nuptk ? ' - ' + g.nuptk : ''} (Guru)`,
           ...g
         }))
     }
@@ -446,42 +348,6 @@ const fetchKelas = async () => {
     }
   } catch (error) {
     console.error('Failed to fetch kelas:', error)
-  }
-}
-
-const fetchJurusan = async () => {
-  try {
-    const response = await axios.get('/lookup/jurusan')
-    jurusanOptions.value = response.data.map(j => ({
-      id: j.id,
-      nama_jurusan: `${j.kode_jurusan} - ${j.nama_jurusan}`,
-      ...j
-    }))
-  } catch (error) {
-    console.error('Failed to fetch jurusan:', error)
-  }
-}
-
-const fetchDetail = async (guruId) => {
-  try {
-    loadingDetail.value = true
-    // Get all wali kelas assignments for this guru
-    const response = await axios.get(`/admin/wali-kelas`, {
-      params: {
-        guru_id: guruId
-      }
-    })
-    
-    if (response.data.data && response.data.data.length > 0) {
-      waliKelasDetail.value = response.data.data[0]
-    } else {
-      waliKelasDetail.value = null
-    }
-  } catch (error) {
-    toast.error('Gagal mengambil detail wali kelas')
-    console.error(error)
-  } finally {
-    loadingDetail.value = false
   }
 }
 
@@ -517,12 +383,6 @@ const submitAssign = async () => {
   } finally {
     submitting.value = false
   }
-}
-
-const viewDetail = async (waliKelasItem) => {
-  selectedWaliKelas.value = waliKelasItem
-  showDetailModal.value = true
-  await fetchDetail(waliKelasItem.guru_id)
 }
 
 const editWaliKelas = async (waliKelasItem) => {
@@ -715,11 +575,7 @@ const handleSearch = (searchTerm) => {
 }
 
 const formatRole = (role) => {
-  const roleMap = {
-    guru: 'Guru',
-    wali_kelas: 'Wali Kelas',
-    kepala_sekolah: 'Kepala Sekolah'
-  }
+  const roleMap = { guru: 'Guru', kepala_sekolah: 'Kepala Sekolah' }
   return roleMap[role] || role
 }
 
@@ -728,7 +584,6 @@ onMounted(() => {
   fetchWaliKelas()
   fetchGuru()
   fetchKelas()
-  fetchJurusan()
 })
 </script>
 

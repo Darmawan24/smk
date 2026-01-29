@@ -17,6 +17,7 @@ class Ukk extends Model
     protected $table = 'ukk';
 
     protected $fillable = [
+        'ukk_event_id',
         'siswa_id',
         'jurusan_id',
         'kelas_id',
@@ -37,6 +38,14 @@ class Ukk extends Model
         'nilai_praktek' => 'integer',
         'nilai_akhir' => 'decimal:2',
     ];
+
+    /**
+     * Get the UKK event.
+     */
+    public function ukkEvent()
+    {
+        return $this->belongsTo(UkkEvent::class, 'ukk_event_id');
+    }
 
     /**
      * Get the siswa.

@@ -122,8 +122,8 @@ class GuruController extends Controller
             'p5AsKoordinator',
         ]);
 
-        if ($guru->user->role === 'wali_kelas') {
-            $guru->load('user.kelasAsWali.siswa');
+        if ($guru->user && $guru->waliKelasAktif()->exists()) {
+            $guru->load(['waliKelasAktif.kelas.siswa']);
         }
 
         return response()->json($guru);
@@ -272,7 +272,7 @@ class GuruController extends Controller
      */
     public function availableUsers(Request $request)
     {
-        $users = User::whereIn('role', ['guru', 'wali_kelas', 'kepala_sekolah'])
+        $users = User::whereIn('role', ['guru', 'kepala_sekolah'])
             ->whereDoesntHave('guru')
             ->where('is_active', true)
             ->select('id', 'name', 'email', 'role', 'nuptk')

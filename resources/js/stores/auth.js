@@ -14,7 +14,13 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: (state) => !!state.token,
     isAdmin: (state) => state.user?.role === 'admin',
     isGuru: (state) => state.user?.role === 'guru',
-    isWaliKelas: (state) => state.user?.role === 'wali_kelas',
+    isWaliKelas: (state) => {
+      if (state.user?.role !== 'guru') return false
+      const w = state.profile?.waliKelasAktif ?? state.profile?.wali_kelas_aktif
+      if (!w) return false
+      const n = Array.isArray(w) ? w.length : (typeof w === 'object' && w !== null ? Object.keys(w).length : 0)
+      return n > 0
+    },
     isKepalaSekolah: (state) => state.user?.role === 'kepala_sekolah',
     isSiswa: (state) => state.user?.role === 'siswa'
   },
@@ -126,15 +132,12 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    // Redirect based on role
     getDefaultRoute() {
       switch (this.user?.role) {
         case 'admin':
           return '/admin'
         case 'guru':
           return '/guru'
-        case 'wali_kelas':
-          return '/wali-kelas'
         case 'kepala_sekolah':
           return '/kepala-sekolah'
         case 'siswa':

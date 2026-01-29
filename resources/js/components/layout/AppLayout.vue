@@ -31,7 +31,7 @@
         </router-link>
 
         <!-- Role-specific navigation -->
-        <template v-for="menuGroup in currentUserMenus" :key="menuGroup.title">
+        <template v-for="(menuGroup, menuIdx) in currentUserMenus" :key="'menu-' + menuIdx">
           <div class="pt-4">
             <!-- Section Menu -->
             <template v-if="menuGroup.type === 'section'">
@@ -189,7 +189,6 @@ const roleText = computed(() => {
   const roles = {
     admin: 'Administrator',
     guru: 'Guru',
-    wali_kelas: 'Wali Kelas',
     kepala_sekolah: 'Kepala Sekolah',
     siswa: 'Siswa'
   }
@@ -197,8 +196,13 @@ const roleText = computed(() => {
 })
 
 const currentUserMenus = computed(() => {
-  const userRole = authStore.user?.role
-  return menuConfig[userRole] || []
+  const role = authStore.user?.role
+  const base = menuConfig[role] || []
+  if (role === 'guru' && authStore.isWaliKelas) {
+    const wali = (menuConfig.wali_kelas || []).filter((g) => g.title !== 'Pembelajaran')
+    return [...base, ...wali]
+  }
+  return base
 })
 
 const pageTitle = computed(() => {

@@ -60,28 +60,44 @@ class TahunAjaranController extends Controller
             DB::beginTransaction();
             try {
                 $activeSemester = $validated['active_semester'];
+                $tahun = $validated['tahun'];
 
-                // If setting as active, deactivate all others
+                // Deactivate all others first
                 TahunAjaran::where('is_active', true)->update(['is_active' => false]);
 
-                // Always create both semesters
-                $tahunAjaran1 = TahunAjaran::create([
-                    'tahun' => $validated['tahun'],
-                    'semester' => '1',
-                    'is_active' => ($activeSemester === '1'),
-                ]);
+                // Existing records for this tahun (keyed by semester)
+                $existing = TahunAjaran::where('tahun', $tahun)->get()->keyBy('semester');
+                $created = [];
 
-                $tahunAjaran2 = TahunAjaran::create([
-                    'tahun' => $validated['tahun'],
-                    'semester' => '2',
-                    'is_active' => ($activeSemester === '2'),
-                ]);
+                // Create semester 1 only if it doesn't exist
+                if (! $existing->has('1')) {
+                    $tahunAjaran1 = TahunAjaran::create([
+                        'tahun' => $tahun,
+                        'semester' => '1',
+                        'is_active' => ($activeSemester === '1'),
+                    ]);
+                    $created[] = $tahunAjaran1;
+                } else {
+                    $existing->get('1')->update(['is_active' => $activeSemester === '1']);
+                }
+
+                // Create semester 2 only if it doesn't exist
+                if (! $existing->has('2')) {
+                    $tahunAjaran2 = TahunAjaran::create([
+                        'tahun' => $tahun,
+                        'semester' => '2',
+                        'is_active' => ($activeSemester === '2'),
+                    ]);
+                    $created[] = $tahunAjaran2;
+                } else {
+                    $existing->get('2')->update(['is_active' => $activeSemester === '2']);
+                }
 
                 DB::commit();
 
                 return response()->json([
                     'message' => 'Tahun ajaran berhasil ditambahkan',
-                    'data' => [$tahunAjaran1, $tahunAjaran2],
+                    'data' => $created,
                 ], 201);
             } catch (\Exception $e) {
                 DB::rollBack();

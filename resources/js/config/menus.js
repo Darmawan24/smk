@@ -13,9 +13,18 @@ export const menuConfig = {
         { label: 'Kelola Mapel', to: '/admin/mata-pelajaran', icon: 'book' },
         { label: 'Kelola Ekskul', to: '/admin/ekstrakurikuler', icon: 'star' },
         { label: 'Kelola PKL', to: '/admin/pkl', icon: 'briefcase' },
-        { label: 'Kelola UKK', to: '/admin/ukk', icon: 'clipboard-check' },
         { label: 'Tahun Ajaran', to: '/admin/tahun-ajaran', icon: 'calendar' },
         { label: 'Kelola P5', to: '/admin/p5', icon: 'lightbulb' },
+      ]
+    },
+    {
+      type: 'dropdown',
+      title: 'Kelola UKK',
+      icon: 'clipboard-check',
+      routes: ['/admin/ukk-events', '/admin/ukk'],
+      items: [
+        { label: 'Data UKK', to: '/admin/ukk-events', icon: 'document-duplicate' },
+        { label: 'Nilai UKK', to: '/admin/ukk', icon: 'clipboard-check' }
       ]
     },
     {

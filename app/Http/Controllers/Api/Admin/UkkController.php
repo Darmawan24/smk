@@ -4,14 +4,14 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Ukk;
+use App\Models\UkkEvent;
 use App\Models\Jurusan;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /**
  * UkkController
- * 
- * Handles CRUD operations for UKK (admin only)
+ *
+ * Handles Nilai UKK (scores) – event data is in UkkEventController.
  */
 class UkkController extends Controller
 {
@@ -60,45 +60,55 @@ class UkkController extends Controller
     }
 
     /**
-     * Store a newly created UKK.
-     *
-     * @param  Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * Store Nilai UKK (link siswa to event and save scores).
      */
     public function store(Request $request)
     {
         $request->validate([
-            'siswa_id' => 'required|exists:siswa,id',
             'jurusan_id' => 'required|exists:jurusan,id',
             'kelas_id' => 'required|exists:kelas,id',
-            'nama_du_di' => 'nullable|string|max:255',
-            'tanggal_ujian' => 'required|date',
+            'siswa_id' => 'required|exists:siswa,id',
             'nilai_teori' => 'nullable|integer|min:0|max:100',
             'nilai_praktek' => 'nullable|integer|min:0|max:100',
-            'penguji_internal_id' => 'required|exists:guru,id',
-            'penguji_eksternal' => 'nullable|string|max:255',
-            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
         ]);
 
-        // Verify siswa belongs to the jurusan and kelas
+        $event = UkkEvent::where('jurusan_id', $request->jurusan_id)
+            ->where('kelas_id', $request->kelas_id)
+            ->with('tahunAjaran')
+            ->orderBy('tanggal_ujian', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (!$event) {
+            return response()->json([
+                'message' => 'Data UKK tidak ditemukan untuk jurusan dan kelas ini. Buat Data UKK terlebih dahulu.',
+            ], 422);
+        }
+
         $siswa = \App\Models\Siswa::findOrFail($request->siswa_id);
-        if ($siswa->kelas->jurusan_id != $request->jurusan_id) {
-            return response()->json([
-                'message' => 'Siswa tidak berada di jurusan yang dipilih',
-            ], 422);
-        }
-        
-        if ($siswa->kelas_id != $request->kelas_id) {
-            return response()->json([
-                'message' => 'Siswa tidak berada di kelas yang dipilih',
-            ], 422);
+        if ($siswa->kelas_id != $request->kelas_id || $siswa->kelas->jurusan_id != $request->jurusan_id) {
+            return response()->json(['message' => 'Siswa tidak berada di jurusan/kelas yang dipilih.'], 422);
         }
 
-        $ukk = Ukk::create($request->all());
+        if (Ukk::where('ukk_event_id', $event->id)->where('siswa_id', $request->siswa_id)->exists()) {
+            return response()->json(['message' => 'Nilai UKK untuk siswa ini sudah ada pada Data UKK yang sama.'], 422);
+        }
 
-        // Reload with relationships
+        $ukk = Ukk::create([
+            'ukk_event_id' => $event->id,
+            'siswa_id' => $request->siswa_id,
+            'jurusan_id' => $event->jurusan_id,
+            'kelas_id' => $event->kelas_id,
+            'tahun_ajaran_id' => $event->tahun_ajaran_id,
+            'nama_du_di' => $event->nama_du_di,
+            'tanggal_ujian' => $event->tanggal_ujian,
+            'penguji_internal_id' => $event->penguji_internal_id,
+            'penguji_eksternal' => $event->penguji_eksternal,
+            'nilai_teori' => $request->nilai_teori ? (int) $request->nilai_teori : null,
+            'nilai_praktek' => $request->nilai_praktek ? (int) $request->nilai_praktek : null,
+        ]);
+
         $ukk->load(['siswa.user', 'jurusan', 'kelas', 'pengujiInternal.user', 'tahunAjaran']);
-
         return response()->json($ukk, 201);
     }
 
@@ -116,52 +126,25 @@ class UkkController extends Controller
     }
 
     /**
-     * Update the specified UKK.
-     *
-     * @param  Request  $request
-     * @param  Ukk  $ukk
-     * @return \Illuminate\Http\JsonResponse
+     * Update Nilai UKK (scores only).
      */
     public function update(Request $request, Ukk $ukk)
     {
         $request->validate([
-            'siswa_id' => 'sometimes|required|exists:siswa,id',
-            'jurusan_id' => 'sometimes|required|exists:jurusan,id',
-            'kelas_id' => 'sometimes|required|exists:kelas,id',
-            'nama_du_di' => 'nullable|string|max:255',
-            'tanggal_ujian' => 'sometimes|required|date',
             'nilai_teori' => 'nullable|integer|min:0|max:100',
             'nilai_praktek' => 'nullable|integer|min:0|max:100',
-            'penguji_internal_id' => 'sometimes|required|exists:guru,id',
-            'penguji_eksternal' => 'nullable|string|max:255',
-            'tahun_ajaran_id' => 'sometimes|required|exists:tahun_ajaran,id',
         ]);
 
-        // If siswa_id, jurusan_id, or kelas_id is being updated, verify siswa belongs to jurusan and kelas
-        if ($request->has('siswa_id') || $request->has('jurusan_id') || $request->has('kelas_id')) {
-            $siswaId = $request->siswa_id ?? $ukk->siswa_id;
-            $jurusanId = $request->jurusan_id ?? $ukk->jurusan_id;
-            $kelasId = $request->kelas_id ?? $ukk->kelas_id;
-            
-            $siswa = \App\Models\Siswa::findOrFail($siswaId);
-            if ($siswa->kelas->jurusan_id != $jurusanId) {
-                return response()->json([
-                    'message' => 'Siswa tidak berada di jurusan yang dipilih',
-                ], 422);
-            }
-            
-            if ($siswa->kelas_id != $kelasId) {
-                return response()->json([
-                    'message' => 'Siswa tidak berada di kelas yang dipilih',
-                ], 422);
-            }
+        $up = [];
+        if ($request->has('nilai_teori')) {
+            $up['nilai_teori'] = $request->nilai_teori === '' || $request->nilai_teori === null ? null : (int) $request->nilai_teori;
         }
+        if ($request->has('nilai_praktek')) {
+            $up['nilai_praktek'] = $request->nilai_praktek === '' || $request->nilai_praktek === null ? null : (int) $request->nilai_praktek;
+        }
+        $ukk->update($up);
 
-        $ukk->update($request->all());
-
-        // Reload with relationships
         $ukk->load(['siswa.user', 'jurusan', 'kelas', 'pengujiInternal.user', 'tahunAjaran']);
-
         return response()->json($ukk);
     }
 

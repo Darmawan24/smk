@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\Siswa\RaporSiswaController;
 use App\Http\Controllers\Api\Siswa\NilaiSiswaController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\Admin\UkkController;
+use App\Http\Controllers\Api\Admin\UkkEventController;
 use App\Http\Controllers\Api\Admin\P5Controller as AdminP5Controller;
 use App\Http\Controllers\Api\Admin\CetakRaporController;
 
@@ -56,7 +57,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard routes (role-based)
     Route::get('/dashboard/admin', [DashboardController::class, 'admin'])->middleware('role:admin');
     Route::get('/dashboard/guru', [DashboardController::class, 'guru'])->middleware('role:guru');
-    Route::get('/dashboard/wali-kelas', [DashboardController::class, 'waliKelas'])->middleware('role:wali_kelas');
+    Route::get('/dashboard/wali-kelas', [DashboardController::class, 'waliKelas'])->middleware('wali_kelas');
     Route::get('/dashboard/kepala-sekolah', [DashboardController::class, 'kepalaSekolah'])->middleware('role:kepala_sekolah');
     Route::get('/dashboard/siswa', [DashboardController::class, 'siswa'])->middleware('role:siswa');
 
@@ -78,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('user/{user}/reset-password', [UserController::class, 'resetPassword']);
         Route::post('user/{user}/toggle-status', [UserController::class, 'toggleStatus']);
 
+        Route::get('kelas/available-wali-kelas', [KelasController::class, 'availableWaliKelas']);
         Route::apiResource('kelas', KelasController::class);
         Route::post('kelas/{kelas}/assign-wali', [KelasController::class, 'assignWali']);
         Route::get('kelas/{kelas}/siswa', [KelasController::class, 'getSiswa']);
@@ -99,6 +101,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('ekstrakurikuler/{ekstrakurikuler}/assign-pembina', [EkstrakurikulerController::class, 'assignPembina']);
 
         Route::apiResource('pkl', PklController::class);
+        Route::get('ukk-events/lookup', [UkkEventController::class, 'lookup']);
+        Route::apiResource('ukk-events', UkkEventController::class);
         Route::apiResource('ukk', UkkController::class);
         Route::get('ukk/jurusan/{jurusan}', [UkkController::class, 'byJurusan']);
         Route::get('p5/available-guru', [AdminP5Controller::class, 'availableGuru']);
@@ -155,8 +159,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('nilai-ekstrakurikuler/batch-store', [NilaiEkstrakurikulerController::class, 'batchStore']);
     });
 
-    // Wali Kelas routes
-    Route::middleware('role:wali_kelas')->prefix('wali-kelas')->group(function () {
+    // Wali Kelas routes (guru with active WaliKelas assignment only)
+    Route::middleware('wali_kelas')->prefix('wali-kelas')->group(function () {
         // Capaian & Tujuan Pembelajaran
         Route::get('capaian-pembelajaran/mapel/{mataPelajaran}', [CapaianPembelajaranController::class, 'byMapel']);
         Route::apiResource('capaian-pembelajaran', CapaianPembelajaranController::class);
@@ -267,7 +271,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Shared routes (multiple roles)
-    Route::middleware('role:admin,guru,wali_kelas')->group(function () {
+    Route::middleware('role:admin,guru')->group(function () {
         // Nilai Ekstrakurikuler
         Route::get('nilai-ekstrakurikuler/siswa/{siswa}', [NilaiEkstrakurikulerController::class, 'bySiswa']);
         Route::post('nilai-ekstrakurikuler', [NilaiEkstrakurikulerController::class, 'store']);

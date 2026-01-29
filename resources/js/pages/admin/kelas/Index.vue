@@ -352,20 +352,13 @@ const fetchJurusan = async () => {
 
 const fetchWaliKelas = async () => {
   try {
-    const response = await axios.get('/admin/user', {
-      params: {
-        role: 'wali_kelas',
-        is_active: 'true',
-        per_page: 100
-      }
-    })
-    if (response.data.data) {
-      waliKelasOptions.value = response.data.data.map(u => ({
-        id: u.id,
-        name: u.name,
-        ...u
-      }))
-    }
+    const response = await axios.get('/admin/kelas/available-wali-kelas')
+    const data = Array.isArray(response.data) ? response.data : response.data?.data ?? []
+    waliKelasOptions.value = data.map(u => ({
+      id: u.id,
+      name: u.name,
+      ...u
+    }))
   } catch (error) {
     console.error('Failed to fetch wali kelas:', error)
   }

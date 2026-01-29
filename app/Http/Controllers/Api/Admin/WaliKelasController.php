@@ -116,10 +116,9 @@ class WaliKelasController extends Controller
         $guru = Guru::find($request->guru_id);
         $kelas = Kelas::find($request->kelas_id);
 
-        // Validate user role
-        if (!$guru->user || !in_array($guru->user->role, ['wali_kelas', 'guru', 'kepala_sekolah'])) {
+        if (!$guru->user || $guru->user->role !== 'guru') {
             return response()->json([
-                'message' => 'Guru yang dipilih harus memiliki role wali kelas, guru, atau kepala sekolah',
+                'message' => 'Guru yang dipilih harus memiliki role guru',
             ], 422);
         }
 
@@ -251,7 +250,7 @@ class WaliKelasController extends Controller
                             DB::rollBack();
                             return response()->json([
                                 'message' => 'Guru ID tidak valid untuk membuat penetapan baru.',
-                                'debug' => ['guru_id' => $guruId, 'current_wali_kelas_id' => $currentWaliKelas->id],
+                                'debug' => ['guru_id' => $guruId, 'current_wali_kelas_id' => $waliKelas->id],
                             ], 422);
                         }
                         

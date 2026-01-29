@@ -49,8 +49,15 @@ class AuthController extends Controller
         $profileData = null;
         if ($user->role === 'siswa' && $user->siswa) {
             $profileData = $user->siswa->load('kelas.jurusan');
-        } elseif (in_array($user->role, ['guru', 'wali_kelas']) && $user->guru) {
+        } elseif (in_array($user->role, ['guru', 'kepala_sekolah']) && $user->guru) {
             $profileData = $user->guru;
+            if ($user->role === 'guru' && $user->isWaliKelas()) {
+                $profileData->load([
+                    'waliKelasAktif.kelas' => function ($query) {
+                        $query->with('jurusan')->withCount(['siswa' => fn ($q) => $q->where('status', 'aktif')]);
+                    },
+                ]);
+            }
         }
 
         return response()->json([
@@ -73,7 +80,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'in:admin,guru,wali_kelas,kepala_sekolah,siswa'],
+            'role' => ['required', 'in:admin,guru,kepala_sekolah,siswa'],
             'nuptk' => ['nullable', 'string', 'unique:users'],
             'nis' => ['nullable', 'string', 'unique:users'],
         ]);
@@ -123,12 +130,9 @@ class AuthController extends Controller
         $profileData = null;
         if ($user->role === 'siswa' && $user->siswa) {
             $profileData = $user->siswa->load('kelas.jurusan');
-        } elseif (in_array($user->role, ['guru', 'wali_kelas']) && $user->guru) {
+        } elseif (in_array($user->role, ['guru', 'kepala_sekolah']) && $user->guru) {
             $profileData = $user->guru;
-            
-            if ($user->role === 'wali_kelas') {
-                // Load wali kelas assignments and their classes
-                // Use relationship from guru, not from user
+            if ($user->role === 'guru' && $user->isWaliKelas()) {
                 $profileData->load([
                     'waliKelasAktif.kelas' => function ($query) {
                         $query->with('jurusan')->withCount(['siswa' => function ($q) {

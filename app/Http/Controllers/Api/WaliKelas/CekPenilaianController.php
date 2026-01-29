@@ -27,7 +27,7 @@ class CekPenilaianController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user || $user->role !== 'wali_kelas') {
+        if (!$user || !$user->isWaliKelas()) {
             return response()->json([
                 'message' => 'Unauthorized',
             ], 403);
@@ -213,7 +213,7 @@ class CekPenilaianController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user || $user->role !== 'wali_kelas') {
+        if (!$user || !$user->isWaliKelas()) {
             return response()->json([
                 'message' => 'Unauthorized',
             ], 403);
@@ -401,7 +401,7 @@ class CekPenilaianController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user || $user->role !== 'wali_kelas') {
+        if (!$user || !$user->isWaliKelas()) {
             return response()->json([
                 'message' => 'Unauthorized',
             ], 403);
@@ -585,7 +585,7 @@ class CekPenilaianController extends Controller
     {
         $user = Auth::user();
         
-        if (!$user || $user->role !== 'wali_kelas') {
+        if (!$user || !$user->isWaliKelas()) {
             return response()->json([
                 'message' => 'Unauthorized',
             ], 403);

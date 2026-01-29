@@ -89,12 +89,12 @@ class KelasController extends Controller
             'kapasitas' => ['required', 'integer', 'min:1', 'max:50'],
         ]);
 
-        // Validate wali_kelas role if provided
+        // Only guru may be assigned as wali kelas
         if ($request->wali_kelas_id) {
-            $waliKelas = User::find($request->wali_kelas_id);
-            if (!$waliKelas || !in_array($waliKelas->role, ['wali_kelas', 'guru', 'kepala_sekolah'])) {
+            $u = User::find($request->wali_kelas_id);
+            if (!$u || $u->role !== 'guru') {
                 return response()->json([
-                    'message' => 'User yang dipilih harus memiliki role wali kelas, guru, atau kepala sekolah',
+                    'message' => 'User yang dipilih harus memiliki role guru',
                 ], 422);
             }
         }
@@ -175,12 +175,11 @@ class KelasController extends Controller
             ], 422);
         }
 
-        // Validasi role wali hanya jika wali_kelas_id dikirim (opsional)
         if ($request->has('wali_kelas_id') && $request->wali_kelas_id) {
-            $waliKelas = User::find($request->wali_kelas_id);
-            if (!$waliKelas || !in_array($waliKelas->role, ['wali_kelas', 'guru', 'kepala_sekolah'])) {
+            $u = User::find($request->wali_kelas_id);
+            if (!$u || $u->role !== 'guru') {
                 return response()->json([
-                    'message' => 'User yang dipilih harus memiliki role wali kelas, guru, atau kepala sekolah',
+                    'message' => 'User yang dipilih harus memiliki role guru',
                 ], 422);
             }
         }
@@ -229,7 +228,7 @@ class KelasController extends Controller
         }
 
         $guru = \App\Models\Guru::where('user_id', $waliKelasUserId)->with('user')->first();
-        if (!$guru || !$guru->user || !in_array($guru->user->role, ['wali_kelas', 'guru', 'kepala_sekolah'])) {
+        if (!$guru || !$guru->user || $guru->user->role !== 'guru') {
             return;
         }
 
@@ -291,10 +290,10 @@ class KelasController extends Controller
         ]);
 
         $guru = \App\Models\Guru::find($request->guru_id);
-        
-        if (!$guru->user || !in_array($guru->user->role, ['wali_kelas', 'guru', 'kepala_sekolah'])) {
+
+        if (!$guru->user || $guru->user->role !== 'guru') {
             return response()->json([
-                'message' => 'Guru yang dipilih harus memiliki role wali kelas, guru, atau kepala sekolah',
+                'message' => 'Guru yang dipilih harus memiliki role guru',
             ], 422);
         }
 
@@ -332,6 +331,29 @@ class KelasController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Get users eligible as wali kelas (guru only, has guru, is_active).
+     *
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function availableWaliKelas(Request $request)
+    {
+        $users = User::where('role', 'guru')
+            ->whereHas('guru')
+            ->where('is_active', true)
+            ->with('guru:id,user_id,nama_lengkap,nuptk')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+
+        return response()->json($users->map(fn ($u) => [
+            'id' => $u->id,
+            'name' => $u->name,
+            'email' => $u->email,
+            'guru' => $u->guru,
+        ]));
     }
 
     /**

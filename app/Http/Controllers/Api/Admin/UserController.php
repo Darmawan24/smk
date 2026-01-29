@@ -69,16 +69,15 @@ class UserController extends Controller
             'name' => ['nullable', 'string', 'max:255'], // Optional, will be filled from selected data
             'email' => ['required', 'string', 'email', 'unique:users'],
             'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', 'in:admin,guru,wali_kelas,kepala_sekolah,siswa'],
-            'guru_id' => ['nullable', 'exists:guru,id', 'required_if:role,guru,wali_kelas,kepala_sekolah'],
+            'role' => ['required', 'in:admin,guru,kepala_sekolah,siswa'],
+            'guru_id' => ['nullable', 'exists:guru,id', 'required_if:role,guru,kepala_sekolah'],
             'siswa_id' => ['nullable', 'exists:siswa,id', 'required_if:role,siswa'],
             'nis' => ['nullable', 'string', 'unique:users'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         // Validate role-specific fields
-        if (in_array($request->role, ['guru', 'wali_kelas', 'kepala_sekolah'])) {
-            // For these roles, guru_id is required
+        if (in_array($request->role, ['guru', 'kepala_sekolah'])) {
             if (!$request->guru_id) {
                 return response()->json([
                     'message' => 'Guru harus dipilih untuk role ' . $request->role,
@@ -231,7 +230,7 @@ class UserController extends Controller
         $request->validate([
             'name' => ['nullable', 'string', 'max:255'], // Optional, will use existing if not provided
             'email' => ['required', 'string', 'email', Rule::unique('users')->ignore($user->id)],
-            'role' => ['required', 'in:admin,guru,wali_kelas,kepala_sekolah,siswa'],
+            'role' => ['required', 'in:admin,guru,kepala_sekolah,siswa'],
             'password' => ['nullable', 'string', 'min:8'], // Optional for edit
             'guru_id' => ['nullable', 'exists:guru,id'],
             'siswa_id' => ['nullable', 'exists:siswa,id'],
@@ -239,8 +238,7 @@ class UserController extends Controller
         ]);
 
         // Validate role-specific fields
-        // For guru/wali_kelas/kepala_sekolah: guru_id is required
-        if (in_array($request->role, ['guru', 'wali_kelas', 'kepala_sekolah'])) {
+        if (in_array($request->role, ['guru', 'kepala_sekolah'])) {
             // If guru_id is provided, validate it
             if ($request->guru_id) {
                 $guru = \App\Models\Guru::find($request->guru_id);
@@ -305,7 +303,7 @@ class UserController extends Controller
             $nisFromSiswa = null;
             
             // Handle guru/siswa linking/unlinking
-            if (in_array($request->role, ['guru', 'wali_kelas', 'kepala_sekolah'])) {
+            if (in_array($request->role, ['guru', 'kepala_sekolah'])) {
                 // Unlink previous guru if exists and different from new one
                 if ($user->guru && $user->guru->id != $request->guru_id) {
                     $user->guru->update(['user_id' => null]);

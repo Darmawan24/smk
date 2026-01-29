@@ -29,13 +29,6 @@
             :options="roleOptions"
             @update:model-value="fetchUsers"
           />
-          <FormField
-            v-model="filters.is_active"
-            type="select"
-            placeholder="Status Aktif"
-            :options="activeStatusOptions"
-            @update:model-value="fetchUsers"
-          />
         </template>
 
         <template #cell-name="{ item }">
@@ -53,12 +46,6 @@
         <template #cell-role="{ item }">
           <span :class="getRoleBadge(item.role)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
             {{ formatRole(item.role) }}
-          </span>
-        </template>
-
-        <template #cell-is_active="{ item }">
-          <span :class="item.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
-            {{ item.is_active ? 'Aktif' : 'Non-Aktif' }}
           </span>
         </template>
 
@@ -117,19 +104,9 @@
               :error="errors.password"
             />
             
-            <!-- NIS Field (for siswa) -->
+            <!-- Pilih Guru (for guru, kepala_sekolah) -->
             <FormField
-              v-if="form.role === 'siswa'"
-              v-model="form.nis"
-              label="NIS"
-              placeholder="Masukkan NIS"
-              required
-              :error="errors.nis"
-            />
-            
-            <!-- Pilih Guru (for guru, wali_kelas, kepala_sekolah) -->
-            <FormField
-              v-if="['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)"
+              v-if="['guru', 'kepala_sekolah'].includes(form.role)"
               v-model="form.guru_id"
               type="select"
               label="Pilih Guru"
@@ -141,7 +118,7 @@
               :error="errors.guru_id"
               @update:model-value="onGuruSelect"
             />
-            <div v-if="['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role) && selectedGuru" class="p-3 bg-blue-50 rounded-lg">
+            <div v-if="['guru', 'kepala_sekolah'].includes(form.role) && selectedGuru" class="p-3 bg-blue-50 rounded-lg">
               <p class="text-sm text-gray-700">
                 <strong>Nama:</strong> {{ selectedGuru.nama_lengkap }}<br>
                 <strong>NUPTK:</strong> {{ selectedGuru.nuptk }}<br>
@@ -248,8 +225,7 @@ const errors = ref({})
 // Filters
 const filters = reactive({
   search: '',
-  role: '',
-  is_active: ''
+  role: ''
 })
 
 // Table columns
@@ -257,27 +233,20 @@ const columns = [
   { key: 'name', label: 'Nama & Email', sortable: true },
   { key: 'role', label: 'Role', sortable: true },
   { key: 'profile', label: 'Profile Terkait' },
-  { key: 'nuptk', label: 'NUPTK/NIS', sortable: true },
-  { key: 'is_active', label: 'Status', sortable: true }
+  { key: 'nuptk', label: 'NUPTK/NIS', sortable: true }
 ]
 
 // Options
 const roleOptions = [
   { value: 'admin', label: 'Admin' },
   { value: 'guru', label: 'Guru' },
-  { value: 'wali_kelas', label: 'Wali Kelas' },
   { value: 'kepala_sekolah', label: 'Kepala Sekolah' },
   { value: 'siswa', label: 'Siswa' }
 ]
 
-const activeStatusOptions = [
-  { value: 'true', label: 'Aktif' },
-  { value: 'false', label: 'Non-Aktif' }
-]
-
 // Computed
 const needsNuptk = computed(() => {
-  return ['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)
+  return ['guru', 'kepala_sekolah'].includes(form.role)
 })
 
 const needsNis = computed(() => {
@@ -291,7 +260,6 @@ const fetchUsers = async () => {
     const params = new URLSearchParams()
     if (filters.search) params.append('search', filters.search)
     if (filters.role) params.append('role', filters.role)
-    if (filters.is_active) params.append('is_active', filters.is_active)
     // Get more items per page for client-side pagination
     params.append('per_page', 100)
     
@@ -400,7 +368,7 @@ const handleRoleChange = () => {
   selectedSiswa.value = null
   
   // Fetch available data based on role
-  if (['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)) {
+  if (['guru', 'kepala_sekolah'].includes(form.role)) {
     fetchAvailableGuru()
   } else if (form.role === 'siswa') {
     fetchAvailableSiswa()
@@ -445,7 +413,7 @@ const editUser = async (user) => {
     await fetchAvailableSiswa()
   } else {
     // Fetch available options based on role
-    if (['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)) {
+    if (['guru', 'kepala_sekolah'].includes(form.role)) {
       await fetchAvailableGuru()
     } else if (form.role === 'siswa') {
       await fetchAvailableSiswa()
@@ -461,7 +429,7 @@ const submitForm = async () => {
     errors.value = {}
 
     // Validate: if role requires guru, guru_id must be selected
-    if (['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role) && !isEditing.value && !form.guru_id) {
+    if (['guru', 'kepala_sekolah'].includes(form.role) && !isEditing.value && !form.guru_id) {
       errors.value.guru_id = [`Guru harus dipilih untuk role ${form.role}`]
       toast.error('Pilih guru terlebih dahulu')
       submitting.value = false
@@ -477,7 +445,7 @@ const submitForm = async () => {
     }
 
     // Validate: if role requires data selection, name must be filled
-    if (['guru', 'wali_kelas', 'kepala_sekolah', 'siswa'].includes(form.role) && !isEditing.value && !form.name) {
+    if (['guru', 'kepala_sekolah', 'siswa'].includes(form.role) && !isEditing.value && !form.name) {
       errors.value.name = ['Nama lengkap harus diambil dari data yang dipilih']
       toast.error('Pilih data terlebih dahulu')
       submitting.value = false
@@ -502,19 +470,17 @@ const submitForm = async () => {
     }
     
     // Only include guru_id if role requires it
-    if (!['guru', 'wali_kelas', 'kepala_sekolah'].includes(form.role)) {
+    if (!['guru', 'kepala_sekolah'].includes(form.role)) {
       delete payload.guru_id
     }
     
-    // Only include siswa_id if role is siswa
     if (form.role !== 'siswa') {
       delete payload.siswa_id
     }
-    
-    // Remove NIS from payload for create (will be auto-filled from selected data)
-    // For edit: Include NIS if provided
-    if (!isEditing.value) {
-    delete payload.nis
+
+    // NIS untuk siswa selalu diambil dari data siswa (backend), jangan kirim dari form
+    if (form.role === 'siswa') {
+      delete payload.nis
     }
     
     await axios[method](url, payload)
@@ -559,7 +525,6 @@ const formatRole = (role) => {
   const roleMap = {
     admin: 'Admin',
     guru: 'Guru',
-    wali_kelas: 'Wali Kelas',
     kepala_sekolah: 'Kepala Sekolah',
     siswa: 'Siswa'
   }
@@ -570,7 +535,6 @@ const getRoleBadge = (role) => {
   const badges = {
     admin: 'bg-purple-100 text-purple-800',
     guru: 'bg-blue-100 text-blue-800',
-    wali_kelas: 'bg-indigo-100 text-indigo-800',
     kepala_sekolah: 'bg-yellow-100 text-yellow-800',
     siswa: 'bg-green-100 text-green-800'
   }
@@ -581,7 +545,6 @@ const getRoleBadgeColor = (role) => {
   const colors = {
     admin: 'bg-purple-600',
     guru: 'bg-blue-600',
-    wali_kelas: 'bg-indigo-600',
     kepala_sekolah: 'bg-yellow-600',
     siswa: 'bg-green-600'
   }
