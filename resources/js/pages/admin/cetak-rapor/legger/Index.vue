@@ -63,11 +63,15 @@
             <button
               @click="downloadLegger"
               class="btn btn-primary"
+              :disabled="downloading"
             >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg v-if="downloading" class="animate-spin w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
               </svg>
-              Download PDF
+              {{ downloading ? 'Mengunduh...' : 'Download' }}
             </button>
           </div>
         </div>
@@ -83,7 +87,10 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-12 bg-gray-50 z-10 border-r border-gray-200 min-w-[150px]">
                   Nama Siswa
                 </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-48 bg-gray-50 z-10 border-r border-gray-200 min-w-[100px]">
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 z-10 border-r border-gray-200 min-w-[100px]">
+                  NISN
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 z-10 border-r border-gray-200 min-w-[100px]">
                   NIS
                 </th>
                 <th
@@ -106,7 +113,10 @@
                 <td class="px-4 py-3 text-sm font-medium text-gray-900 sticky left-12 bg-white z-10 border-r border-gray-200">
                   {{ item.siswa.nama_lengkap }}
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-500 sticky left-48 bg-white z-10 border-r border-gray-200">
+                <td class="px-4 py-3 text-sm text-gray-500 bg-white z-10 border-r border-gray-200">
+                  {{ item.siswa.nisn || '-' }}
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-500 bg-white z-10 border-r border-gray-200">
                   {{ item.siswa.nis }}
                 </td>
                 <td
@@ -162,6 +172,7 @@ const toast = useToast()
 // Data
 const leggerData = ref(null)
 const loading = ref(false)
+const downloading = ref(false)
 
 // Filters
 const filters = reactive({
@@ -186,12 +197,18 @@ const fetchKelas = async () => {
   }
 }
 
+const formatTahunAjaranLabel = (ta) => {
+  if (!ta) return ''
+  const semester = ta.semester != null ? ta.semester : ''
+  return semester ? `${ta.tahun} - Semester ${semester}` : ta.tahun
+}
+
 const fetchTahunAjaran = async () => {
   try {
     const response = await axios.get('/lookup/tahun-ajaran')
     tahunAjaranFilterOptions.value = response.data.map(ta => ({
       ...ta,
-      label: ta.tahun
+      label: formatTahunAjaranLabel(ta)
     }))
   } catch (error) {
     console.error('Failed to fetch tahun ajaran:', error)
@@ -216,7 +233,7 @@ const loadLegger = async () => {
       ...response.data,
       tahun_ajaran: response.data.tahun_ajaran ? {
         ...response.data.tahun_ajaran,
-        label: response.data.tahun_ajaran.tahun
+        label: formatTahunAjaranLabel(response.data.tahun_ajaran)
       } : null
     }
   } catch (error) {
@@ -252,6 +269,7 @@ const downloadLegger = async () => {
   }
 
   try {
+    downloading.value = true
     const params = new URLSearchParams()
     if (filters.tahun_ajaran_id) {
       params.append('tahun_ajaran_id', filters.tahun_ajaran_id)
@@ -261,20 +279,35 @@ const downloadLegger = async () => {
       responseType: 'blob'
     })
 
-    // For now, show message since PDF generation is not implemented
-    toast.info('Fitur download PDF akan segera tersedia')
+    const blob = response.data
+    const contentType = response.headers['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    if (contentType.includes('application/json')) {
+      const text = await blob.text()
+      const json = JSON.parse(text)
+      toast.error(json?.message || 'Gagal mengunduh legger')
+      return
+    }
 
-    // Future implementation:
-    // const url = window.URL.createObjectURL(new Blob([response.data]))
-    // const link = document.createElement('a')
-    // link.href = url
-    // link.setAttribute('download', `legger-${leggerData.value.kelas?.nama_kelas}.pdf`)
-    // document.body.appendChild(link)
-    // link.click()
-    // link.remove()
+    const url = window.URL.createObjectURL(new Blob([blob], { type: contentType }))
+    const link = document.createElement('a')
+    link.href = url
+    const disposition = response.headers['content-disposition']
+    let filename = `Legger-Nilai-${leggerData.value?.kelas?.nama_kelas || filters.kelas_id}.xlsx`
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";\n]+)"?/i) || disposition.match(/filename="?([^";\n]+)"?/i)
+      if (match) filename = match[1].trim()
+    }
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    toast.success('Legger berhasil diunduh')
   } catch (error) {
     toast.error('Gagal mengunduh legger')
     console.error(error)
+  } finally {
+    downloading.value = false
   }
 }
 

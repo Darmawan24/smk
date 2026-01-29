@@ -11,8 +11,16 @@ use App\Models\NilaiP5;
 use App\Models\P5;
 use App\Models\Nilai;
 use App\Models\MataPelajaran;
+use App\Models\Kehadiran;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 /**
  * CetakRaporController for Admin
@@ -492,10 +500,9 @@ class CetakRaporController extends Controller
         // Get all active students in the class
         $siswa = $kelas->siswa()->where('status', 'aktif')->orderBy('nama_lengkap')->get();
 
-        // Get all mata pelajaran for this class
-        $mataPelajaran = MataPelajaran::where('kelas_id', $kelas->id)
+        // Get all mata pelajaran for this class (via pivot kelas_mata_pelajaran)
+        $mataPelajaran = $kelas->mataPelajaran()
             ->where('is_active', true)
-            ->orderBy('kelompok')
             ->orderBy('nama_mapel')
             ->get();
 
@@ -504,6 +511,15 @@ class CetakRaporController extends Controller
             ->where('tahun_ajaran_id', $tahunAjaranId)
             ->with(['siswa.user', 'mataPelajaran'])
             ->get();
+
+        // Fallback: jika kelas belum punya mapel di pivot, pakai mapel yang punya nilai di tahun ini
+        if ($mataPelajaran->isEmpty() && $nilai->isNotEmpty()) {
+            $mapelIds = $nilai->pluck('mata_pelajaran_id')->unique()->filter()->values();
+            $mataPelajaran = MataPelajaran::whereIn('id', $mapelIds)
+                ->where('is_active', true)
+                ->orderBy('nama_mapel')
+                ->get();
+        }
 
         // Build legger data
         $legger = [];
@@ -535,27 +551,150 @@ class CetakRaporController extends Controller
     }
 
     /**
-     * Download legger as PDF.
+     * Download legger as Excel (.xlsx).
+     * Format: LEGER NILAI RAPOR SISWA TAHUN PELAJARAN ... GENAP/GANJIL, SEKOLAH, Kelas,
+     * tabel No | NAMA SISWA | NISN | NIS | [Mapel sesuai kelas] | Sakit | Izin | Alpa.
      *
      * @param  Request  $request
      * @param  Kelas  $kelas
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
      */
     public function downloadLegger(Request $request, Kelas $kelas)
     {
-        // Load all necessary data
-        $data = $this->legger($request, $kelas)->getData(true);
+        $response = $this->legger($request, $kelas);
+        $payload = $response->getData(true);
+        if ($response->getStatusCode() !== 200 || isset($payload['message'])) {
+            return response()->json($payload, $response->getStatusCode());
+        }
 
-        // For now, return JSON response
-        // TODO: Implement PDF generation using DomPDF or similar
-        return response()->json([
-            'message' => 'PDF generation will be implemented',
-            'data' => $data,
-        ]);
+        $kelasModel = $kelas->load('jurusan');
+        $tahunAjaran = $payload['tahun_ajaran'] ?? null;
+        $mataPelajaran = $payload['mata_pelajaran'] ?? [];
+        $legger = $payload['legger'] ?? [];
 
-        // Future implementation:
-        // $pdf = PDF::loadView('rapor.legger', $data);
-        // return $pdf->download("legger-{$kelas->nama_kelas}.pdf");
+        $tahunAjaranId = is_array($tahunAjaran) ? ($tahunAjaran['id'] ?? null) : ($tahunAjaran->id ?? null);
+        $siswaIds = array_map(function ($item) {
+            $s = $item['siswa'] ?? $item;
+            return is_array($s) ? ($s['id'] ?? null) : $s->id;
+        }, $legger);
+        $siswaIds = array_filter($siswaIds);
+
+        $kehadiranBySiswa = [];
+        if ($tahunAjaranId && ! empty($siswaIds)) {
+            $kehadiran = Kehadiran::whereIn('siswa_id', $siswaIds)
+                ->where('tahun_ajaran_id', $tahunAjaranId)
+                ->get();
+            foreach ($kehadiran as $k) {
+                $sid = is_array($k->siswa_id) ? $k->siswa_id : $k->siswa_id;
+                $kehadiranBySiswa[$sid] = $k;
+            }
+        }
+
+        $namaSekolah = config('app.school_name', 'SMK');
+        $namaKelas = $kelasModel->nama_kelas ?? $kelas->nama_kelas;
+        $tahunLabel = is_array($tahunAjaran) ? ($tahunAjaran['tahun'] ?? '') : ($tahunAjaran->tahun ?? '');
+        $semester = is_array($tahunAjaran) ? ($tahunAjaran['semester'] ?? '1') : ($tahunAjaran->semester ?? '1');
+        $semesterText = ($semester == '2') ? 'GENAP' : 'GANJIL';
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Legger Nilai');
+
+        $numMapel = count($mataPelajaran);
+        $lastCol = 4 + $numMapel + 3; // No, Nama, NISN, NIS, mapel..., Sakit, Izin, Alpa
+        $colLetterLast = Coordinate::stringFromColumnIndex($lastCol);
+
+        // Baris 1: LEGER NILAI RAPOR SISWA TAHUN PELAJARAN ... GENAP/GANJIL (merged, center, bold)
+        $title1 = 'LEGER NILAI RAPOR SISWA TAHUN PELAJARAN ' . $tahunLabel . ' ' . $semesterText;
+        $sheet->setCellValue('A1', $title1);
+        $sheet->mergeCells("A1:{$colLetterLast}1");
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Baris 2: SEKOLAH : {nama_sekolah}
+        $sheet->setCellValue('A2', 'SEKOLAH');
+        $sheet->setCellValue('C2', ': ' . strtoupper($namaSekolah));
+        $sheet->getStyle('A2')->getFont()->setBold(true);
+
+        // Baris 3: Kelas : {nama_kelas}
+        $sheet->setCellValue('A3', 'Kelas');
+        $sheet->setCellValue('C3', ': ' . $namaKelas);
+        $sheet->getStyle('A3')->getFont()->setBold(true);
+
+        // Baris 4: kosong
+        $headerRow = 5;
+
+        // Baris 5: Header tabel NO | NAMA SISWA | NISN | NIS | [Mapel sesuai kelas] | Sakit | Izin | Alpa
+        $sheet->setCellValue('A' . $headerRow, 'NO');
+        $sheet->setCellValue('B' . $headerRow, 'NAMA SISWA');
+        $sheet->setCellValue('C' . $headerRow, 'NISN');
+        $sheet->setCellValue('D' . $headerRow, 'NIS');
+        $col = 5;
+        foreach ($mataPelajaran as $mapel) {
+            $letter = Coordinate::stringFromColumnIndex($col);
+            $sheet->setCellValue($letter . $headerRow, $mapel['nama_mapel'] ?? $mapel->nama_mapel ?? '');
+            $col++;
+        }
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $headerRow, 'Sakit');
+        $col++;
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $headerRow, 'Izin');
+        $col++;
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $headerRow, 'Alpa');
+        $headerRange = "A{$headerRow}:{$colLetterLast}{$headerRow}";
+        $sheet->getStyle($headerRange)->getFont()->setBold(true);
+        $sheet->getStyle($headerRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle($headerRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle($headerRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE0E0E0');
+
+        // Data siswa
+        $dataRow = $headerRow + 1;
+        foreach ($legger as $index => $item) {
+            $siswa = $item['siswa'] ?? $item;
+            $nilaiMap = $item['nilai'] ?? [];
+            $siswaId = is_array($siswa) ? ($siswa['id'] ?? null) : $siswa->id;
+            $kehadiran = $kehadiranBySiswa[$siswaId] ?? null;
+
+            $sheet->setCellValue('A' . $dataRow, $index + 1);
+            $sheet->setCellValue('B' . $dataRow, $siswa['nama_lengkap'] ?? $siswa->nama_lengkap ?? '');
+            $sheet->setCellValue('C' . $dataRow, $siswa['nisn'] ?? $siswa->nisn ?? '');
+            $sheet->setCellValue('D' . $dataRow, $siswa['nis'] ?? $siswa->nis ?? '');
+            $col = 5;
+            foreach ($mataPelajaran as $mapel) {
+                $mapelId = $mapel['id'] ?? $mapel->id ?? null;
+                $nilaiItem = $nilaiMap[$mapelId] ?? null;
+                $nilai = null;
+                if ($nilaiItem) {
+                    $nilai = $nilaiItem['nilai_akhir'] ?? $nilaiItem['nilai_rapor'] ?? $nilaiItem->nilai_akhir ?? $nilaiItem->nilai_rapor ?? null;
+                }
+                $letter = Coordinate::stringFromColumnIndex($col);
+                $sheet->setCellValue($letter . $dataRow, $nilai !== null ? (float) $nilai : '');
+                $col++;
+            }
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $dataRow, $kehadiran ? (int) $kehadiran->sakit : 0);
+            $col++;
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $dataRow, $kehadiran ? (int) $kehadiran->izin : 0);
+            $col++;
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $dataRow, $kehadiran ? (int) $kehadiran->tanpa_keterangan : 0);
+            $dataRange = "A{$dataRow}:{$colLetterLast}{$dataRow}";
+            $sheet->getStyle($dataRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $dataRow++;
+        }
+
+        foreach (range(1, $lastCol) as $c) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
+        }
+
+        $filename = 'Legger-Nilai-' . preg_replace('/[^a-zA-Z0-9\-_]/', '-', $namaKelas) . '.xlsx';
+
+        $writer = new XlsxWriter($spreadsheet);
+        $tempFile = tempnam(sys_get_temp_dir(), 'legger_');
+        $writer->save($tempFile);
+        $spreadsheet->disconnectWorksheets();
+        unset($spreadsheet, $writer);
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     /**
