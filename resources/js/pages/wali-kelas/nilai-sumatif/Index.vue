@@ -539,9 +539,15 @@ const fetchCP = async () => {
     const response = await axios.get(`/wali-kelas/capaian-pembelajaran/mapel/${selectedMapel.value}`)
     const allCP = response.data.capaian_pembelajaran || []
     
-    // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
+    // Default STS/SAS di kelola nilai sumatif: keduanya tampil di tiap semester; create on select jika belum ada
+    const specialOptions = []
+    specialOptions.push(stsOption)
+    specialOptions.push(sasOption)
+    
+    // Filter CP by fase, is_active, semester (field semester di CP), exclude STS/SAS
     const filteredCP = allCP.filter(cp => {
-      return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
+      if (cp.fase !== tingkat || cp.is_active === false || cp.kode_cp === 'STS' || cp.kode_cp === 'SAS') return false
+      return String(cp.semester || '') === String(selectedSemester.value)
     })
     
     // Map to options with label
@@ -553,10 +559,9 @@ const fetchCP = async () => {
       label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
     }))
     
-    // Combine: STS, SAS, then other CP
-    cpOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
+    cpOptions.value = [...specialOptions, ...cpOptionsMapped]
     
-    if (cpOptions.value.length === 2) {
+    if (cpOptions.value.length === 0) {
       toast.warning('Tidak ada Capaian Pembelajaran untuk tingkat dan semester yang dipilih')
     }
   } catch (error) {
@@ -779,9 +784,15 @@ const onFormSemesterChange = async () => {
       const response = await axios.get(`/wali-kelas/capaian-pembelajaran/mapel/${formMapel.value}`)
       const allCP = response.data.capaian_pembelajaran || []
       
-      // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
+      // Default STS/SAS di tambah nilai: keduanya tampil di tiap semester
+      const specialOptions = []
+      specialOptions.push(stsOption)
+      specialOptions.push(sasOption)
+      
+      // Filter CP by fase, is_active, semester (field semester di CP), exclude STS/SAS
       const filteredCP = allCP.filter(cp => {
-        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
+        if (cp.fase !== tingkat || cp.is_active === false || cp.kode_cp === 'STS' || cp.kode_cp === 'SAS') return false
+        return String(cp.semester || '') === String(formSemester.value)
       })
       
       const cpOptionsMapped = filteredCP.map(cp => ({
@@ -792,16 +803,13 @@ const onFormSemesterChange = async () => {
         label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
       }))
       
-      // Combine: STS, SAS, then other CP
-      formCPOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
+      formCPOptions.value = [...specialOptions, ...cpOptionsMapped]
     } catch (error) {
       console.error('Failed to fetch CP:', error)
-      // Even on error, still show STS and SAS
-      formCPOptions.value = [stsOption, sasOption]
+      formCPOptions.value = []
     }
   } else {
-    // If filters are not complete, still show STS and SAS
-    formCPOptions.value = [stsOption, sasOption]
+    formCPOptions.value = []
   }
 }
 
@@ -1058,9 +1066,15 @@ const editNilai = async (nilai) => {
       const cpResponse = await axios.get(`/wali-kelas/capaian-pembelajaran/mapel/${formMapel.value}`)
       const allCP = cpResponse.data.capaian_pembelajaran || []
       
-      // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
+      // Default STS/SAS di tambah nilai: keduanya tampil di tiap semester
+      const specialOptions = []
+      specialOptions.push(stsOption)
+      specialOptions.push(sasOption)
+      
+      // Filter CP by fase, is_active, semester (field semester di CP), exclude STS/SAS
       const filteredCP = allCP.filter(cp => {
-        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
+        if (cp.fase !== tingkat || cp.is_active === false || cp.kode_cp === 'STS' || cp.kode_cp === 'SAS') return false
+        return String(cp.semester || '') === String(formSemester.value)
       })
       
       const cpOptionsMapped = filteredCP.map(cp => ({
@@ -1071,7 +1085,7 @@ const editNilai = async (nilai) => {
         label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
       }))
       
-      formCPOptions.value = [stsOption, sasOption, ...cpOptionsMapped]
+      formCPOptions.value = [...specialOptions, ...cpOptionsMapped]
       
       // Set CP value from nilai data after options are loaded
       // Check if nilai has STS or SAS CP
@@ -1088,14 +1102,12 @@ const editNilai = async (nilai) => {
         formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
       }
     } else {
-      // Even if kelas has no tingkat, still show STS and SAS
-      formCPOptions.value = [stsOption, sasOption]
+      formCPOptions.value = []
       formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
     }
   } catch (error) {
     console.error('Failed to fetch CP:', error)
-    // Even on error, still show STS and SAS
-    formCPOptions.value = [stsOption, sasOption]
+    formCPOptions.value = []
     formCP.value = nilai.capaian_pembelajaran_id || selectedCP.value
   }
   

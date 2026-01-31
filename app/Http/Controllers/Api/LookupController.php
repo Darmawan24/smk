@@ -47,21 +47,23 @@ class LookupController extends Controller
     /**
      * Get all mata pelajaran for dropdown.
      * If user is guru, only return mata pelajaran assigned to that guru.
-     * If kelas_id is provided, filter by kelas_id to avoid duplicates.
+     * If kelas_id is provided, filter by kelas via pivot (kelas_mata_pelajaran).
      */
     public function mataPelajaran(Request $request)
     {
         $query = MataPelajaran::where('is_active', true)
-            ->select('id', 'kode_mapel', 'nama_mapel', 'kelompok', 'kelas_id', 'kkm');
+            ->select('id', 'kode_mapel', 'nama_mapel', 'kelompok', 'kkm');
 
         $user = Auth::user();
         if ($user && $user->role === 'guru' && $user->guru) {
             $query->where('guru_id', $user->guru->id);
         }
 
-        // If kelas_id is provided, filter by kelas_id
+        // If kelas_id is provided, filter by kelas via relation
         if ($request->has('kelas_id') && $request->kelas_id) {
-            $query->where('kelas_id', $request->kelas_id);
+            $query->whereHas('kelas', function ($q) use ($request) {
+                $q->where('kelas.id', $request->kelas_id);
+            });
         }
 
         $mataPelajaran = $query->get();

@@ -35,7 +35,7 @@ export const menuConfig = {
       items: [
         { label: 'Rapor Hasil Belajar', to: '/admin/cetak-rapor/hasil-belajar', icon: 'document-text' },
         { label: 'Rapor Hasil P5', to: '/admin/cetak-rapor/p5', icon: 'document-report' },
-        { label: 'Nilai UKK', to: '/wali-kelas/cetak-rapor/p5', icon: 'document-report' },
+        { label: 'Nilai UKK', to: '/admin/cetak-rapor/nilai-ukk', icon: 'document-report' },
         { label: 'Legger', to: '/admin/cetak-rapor/legger', icon: 'table' }
       ]
     }
@@ -70,7 +70,8 @@ export const menuConfig = {
       title: 'Wali Kelas',
       items: [
         { label: 'Nilai PKL', to: '/wali-kelas/nilai-pkl', icon: 'briefcase' },
-        { label: 'Ketidakhadiran', to: '/wali-kelas/ketidakhadiran', icon: 'x-circle' }
+        { label: 'Ketidakhadiran', to: '/wali-kelas/ketidakhadiran', icon: 'x-circle' },
+        { label: 'Catatan Wali Kelas', to: '/wali-kelas/catatan-wali-kelas', icon: 'document-text' }
       ]
     },
     {
@@ -92,7 +93,6 @@ export const menuConfig = {
       items: [
         { label: 'Rapor Hasil Belajar', to: '/wali-kelas/cetak-rapor/belajar', icon: 'document-text' },
         { label: 'Rapor P5', to: '/wali-kelas/cetak-rapor/p5', icon: 'document-report' },
-        { label: 'Nilai UKK', to: '/wali-kelas/cetak-rapor/p5', icon: 'document-report' },
         { label: 'Legger', to: '/wali-kelas/cetak-rapor/legger', icon: 'table' },
         { label: 'Profil Siswa', to: '/wali-kelas/cetak-rapor/profil-siswa', icon: 'user-circle' }
       ]
@@ -101,13 +101,10 @@ export const menuConfig = {
 
   kepala_sekolah: [
     {
-      type: 'dropdown',
-      title: 'Approve Rapor',
-      icon: 'shield-check',
-      routes: ['/kepala-sekolah/rapor-approval'],
+      type: 'section',
+      title: 'Menu',
       items: [
-        { label: 'Rapor Belajar', to: '/kepala-sekolah/rapor-approval/belajar', icon: 'document-text' },
-        { label: 'Rapor P5', to: '/kepala-sekolah/rapor-approval/p5', icon: 'lightbulb' }
+        { label: 'Approve Rapor', to: '/kepala-sekolah/rapor-approval/belajar', icon: 'shield-check' }
       ]
     }
   ],

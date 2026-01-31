@@ -196,91 +196,66 @@ class WaliKelasController extends Controller
 
         DB::beginTransaction();
         try {
-            // If changing kelas_id, use simple logic: remove from old class, assign to new class
+            // If changing kelas_id: tetapkan kelas baru lalu hapus penetapan kelas lama (replace)
             if ($request->has('kelas_id')) {
                 $newKelasId = (int) $request->kelas_id;
-                
-                // Get current data - refresh model to ensure we have latest data
                 $waliKelas->refresh();
                 $currentKelasId = (int) $waliKelas->kelas_id;
                 $guruId = (int) $waliKelas->guru_id;
-                
+                if ((!$guruId || $guruId <= 0) && $request->filled('guru_id')) {
+                    $guruId = (int) $request->guru_id;
+                }
                 if (!$guruId || $guruId <= 0) {
                     DB::rollBack();
                     return response()->json([
-                        'message' => 'Guru ID tidak ditemukan pada penetapan wali kelas ini.',
+                        'message' => 'Guru ID tidak ditemukan pada penetapan wali kelas ini. Kirim guru_id di payload atau perbaiki data penetapan.',
                     ], 422);
                 }
-                
-                if ($newKelasId != $currentKelasId) {
-                    // Step 1: Nonaktifkan/hapus penetapan dari kelas lama
-                    $waliKelas->update(['is_active' => false]);
-                    
-                    // Step 2: Check if new kelas already has active wali kelas
+                if ((!$waliKelas->guru_id || $waliKelas->guru_id <= 0) && $guruId > 0) {
+                    $waliKelas->update(['guru_id' => $guruId]);
+                }
+
+                if ($newKelasId !== $currentKelasId) {
+                    // Simpan ID record lama yang akan dihapus (supaya penghapusan pasti jalan)
+                    $idRecordLama = (int) $waliKelas->id;
+
+                    // 1. Cek kelas baru belum punya wali kelas aktif
                     $existingWaliKelas = WaliKelas::where('kelas_id', $newKelasId)
                                                  ->where('is_active', true)
                                                  ->first();
-
                     if ($existingWaliKelas) {
                         DB::rollBack();
                         return response()->json([
                             'message' => 'Kelas sudah memiliki wali kelas aktif.',
                         ], 422);
                     }
-                    
-                    // Step 3: Check if there's an inactive assignment for this guru and new kelas
-                    $inactiveWaliKelas = WaliKelas::where('guru_id', $guruId)
-                                                  ->where('kelas_id', $newKelasId)
-                                                  ->where('is_active', false)
-                                                  ->first();
-                    
-                    if ($inactiveWaliKelas) {
-                        // Reactivate existing assignment
-                        $inactiveWaliKelas->update([
-                            'is_active' => true,
-                            'tanggal_mulai' => $request->tanggal_mulai ?? now(),
-                            'tanggal_selesai' => $request->tanggal_selesai ?? $inactiveWaliKelas->tanggal_selesai,
-                            'keterangan' => $request->keterangan ?? $inactiveWaliKelas->keterangan,
-                        ]);
-                        
-                        $waliKelas = $inactiveWaliKelas;
-                    } else {
-                        // Create new assignment - ensure guru_id is not null
-                        if (!$guruId || $guruId <= 0) {
-                            DB::rollBack();
-                            return response()->json([
-                                'message' => 'Guru ID tidak valid untuk membuat penetapan baru.',
-                                'debug' => ['guru_id' => $guruId, 'current_wali_kelas_id' => $waliKelas->id],
-                            ], 422);
-                        }
-                        
-                        // Ensure all required fields are set
-                        $createData = [
-                            'guru_id' => $guruId,
-                            'kelas_id' => $newKelasId,
-                            'tanggal_mulai' => $request->tanggal_mulai ?? now(),
-                            'is_active' => true,
-                        ];
-                        
-                        if ($request->has('tanggal_selesai')) {
-                            $createData['tanggal_selesai'] = $request->tanggal_selesai;
-                        }
-                        
-                        if ($request->has('keterangan')) {
-                            $createData['keterangan'] = $request->keterangan;
-                        }
-                        
-                        $waliKelas = WaliKelas::create($createData);
+
+                    // 2. Buat penetapan wali kelas baru (guru sama, kelas baru)
+                    $createData = [
+                        'guru_id' => $guruId,
+                        'kelas_id' => $newKelasId,
+                        'tanggal_mulai' => $request->tanggal_mulai ?? now(),
+                        'is_active' => true,
+                    ];
+                    if ($request->has('tanggal_selesai')) {
+                        $createData['tanggal_selesai'] = $request->tanggal_selesai;
                     }
+                    if ($request->has('keterangan')) {
+                        $createData['keterangan'] = $request->keterangan;
+                    }
+                    $waliKelasBaru = WaliKelas::create($createData);
+
+                    // 3. Hapus penetapan lama (kelas sebelumnya) — hapus by ID agar pasti jalan
+                    WaliKelas::where('id', $idRecordLama)->delete();
+                    $waliKelas = $waliKelasBaru;
                 } else {
-                    // Same kelas, just update other fields
+                    // Kelas tidak berubah, hanya update field lain
                     $updateData = $request->only([
                         'tanggal_mulai',
                         'tanggal_selesai',
                         'is_active',
                         'keterangan',
                     ]);
-                    
                     $waliKelas->update($updateData);
                 }
             } else {

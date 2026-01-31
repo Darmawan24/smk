@@ -234,6 +234,9 @@
                 >
                   {{ cp.kode_cp }}
                 </th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                  Nilai Akhir
+                </th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -258,6 +261,16 @@
                     class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                   >
                     {{ siswa.nilai_by_cp[cp.kode_cp].nilai || '-' }}
+                  </span>
+                  <span v-else class="text-gray-400 text-xs">-</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-center">
+                  <span
+                    v-if="getNilaiAkhir(siswa) !== null"
+                    :class="getNilaiColor(getNilaiAkhir(siswa))"
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  >
+                    {{ formatNilai(getNilaiAkhir(siswa)) }}
                   </span>
                   <span v-else class="text-gray-400 text-xs">-</span>
                 </td>
@@ -456,6 +469,36 @@ const getNilaiColor = (nilai) => {
   } else {
     return 'bg-green-100 text-green-800'
   }
+}
+
+// Nilai akhir = rata-rata dari (rata-rata CP-1, CP-2, dst) dan nilai SAS
+const getNilaiAkhir = (siswa) => {
+  if (!siswa?.nilai_by_cp || !detailData.value?.capaian_pembelajaran) return null
+
+  const cpList = detailData.value.capaian_pembelajaran
+  const cpOnly = cpList.filter(cp => cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS')
+  const nilaiSAS = siswa.nilai_by_cp['SAS']?.nilai
+
+  const cpValues = cpOnly
+    .map(cp => siswa.nilai_by_cp[cp.kode_cp]?.nilai)
+    .filter(v => v != null && v !== '')
+
+  const rataRataCP = cpValues.length > 0
+    ? cpValues.reduce((sum, v) => sum + parseFloat(v), 0) / cpValues.length
+    : null
+
+  if (rataRataCP !== null && nilaiSAS != null && nilaiSAS !== '') {
+    return (rataRataCP + parseFloat(nilaiSAS)) / 2
+  }
+  if (rataRataCP !== null) return rataRataCP
+  if (nilaiSAS != null && nilaiSAS !== '') return parseFloat(nilaiSAS)
+  return null
+}
+
+const formatNilai = (nilai) => {
+  if (nilai == null) return '-'
+  const n = parseFloat(nilai)
+  return Number.isInteger(n) ? n.toFixed(0) : n.toFixed(2)
 }
 
 // Lifecycle

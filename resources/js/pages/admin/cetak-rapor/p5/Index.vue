@@ -22,7 +22,7 @@
             :options="kelasFilterOptions"
             option-value="id"
             option-label="full_name"
-            @update:model-value="() => fetchRapor(1)"
+            @update:model-value="onFiltersChange"
           />
         </div>
         <div class="mt-4">
@@ -42,8 +42,19 @@
         <p class="mt-2 text-sm text-gray-500">Memuat data rapor...</p>
       </div>
 
+      <!-- Empty Filters State -->
+      <div v-else-if="!filtersReady" class="bg-white shadow rounded-lg p-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Pilih Filter</h3>
+        <p class="mt-1 text-sm text-gray-500">
+          Pilih Kelas untuk menampilkan daftar rapor P5.
+        </p>
+      </div>
+
       <!-- Rapor List -->
-      <div v-else class="bg-white shadow rounded-lg overflow-hidden">
+      <div v-else-if="filtersReady && (siswaList?.data?.length ?? 0) > 0" class="bg-white shadow rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
@@ -86,9 +97,13 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <button
+                  type="button"
                   @click="downloadRapor(siswa)"
-                  class="text-green-600 hover:text-green-900"
+                  class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700"
                 >
+                  <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
                   Download
                 </button>
               </td>
@@ -162,12 +177,21 @@
           </div>
         </div>
       </div>
+
+      <!-- Empty State (filters filled but no data) -->
+      <div v-else-if="filtersReady" class="bg-white shadow rounded-lg p-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Belum ada rapor P5</h3>
+        <p class="mt-1 text-sm text-gray-500">Tidak ada siswa dengan rapor P5 untuk filter yang dipilih.</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
 import axios from 'axios'
 import FormField from '../../../../components/ui/FormField.vue'
@@ -183,6 +207,8 @@ const filters = reactive({
   search: '',
   kelas_id: ''
 })
+
+const filtersReady = computed(() => !!filters.kelas_id)
 
 // Options
 const kelasFilterOptions = ref([])
@@ -220,8 +246,16 @@ const fetchRapor = async (page = 1) => {
   }
 }
 
+const onFiltersChange = () => {
+  if (filtersReady.value) {
+    fetchRapor(1)
+  } else {
+    siswaList.value = null
+  }
+}
+
 const handleSearch = () => {
-  fetchRapor(1)
+  if (filtersReady.value) fetchRapor(1)
 }
 
 const changePage = (page) => {
@@ -294,7 +328,6 @@ const getNilaiBadgeClass = (nilai) => {
 
 onMounted(() => {
   fetchKelas()
-  fetchRapor()
 })
 </script>
 

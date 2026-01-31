@@ -347,12 +347,14 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import axios from 'axios'
 import FormField from '../../../components/ui/FormField.vue'
 import Modal from '../../../components/ui/Modal.vue'
 
 const toast = useToast()
+const route = useRoute()
 
 // Data
 const kelasOptions = ref([])
@@ -428,14 +430,17 @@ const isSelectedSTSOrSAS = computed(() => {
 })
 
 // Methods
-const fetchMapel = async () => {
+const fetchMapel = async (kelasId = null) => {
   try {
-    // Fetch all mata pelajaran for the current guru (no kelas filter)
-    const response = await axios.get('/lookup/mata-pelajaran')
+    const params = {}
+    if (kelasId) params.kelas_id = kelasId
+    const response = await axios.get('/lookup/mata-pelajaran', { params })
     mapelOptions.value = response.data
+    return response.data
   } catch (error) {
     console.error('Failed to fetch mata pelajaran:', error)
     mapelOptions.value = []
+    return []
   }
 }
 
@@ -576,39 +581,17 @@ const fetchCP = async () => {
       const response = await axios.get(`/guru/capaian-pembelajaran/mapel/${selectedMapel.value}`)
       const allCP = response.data.capaian_pembelajaran || []
       
-      // Hanya tampilkan STS/SAS di dropdown jika ada CP aktif di database
-      const hasActiveSTS = allCP.some(cp => cp.kode_cp === 'STS' && cp.is_active === true && String(cp.fase) === tingkat)
-      const hasActiveSAS = allCP.some(cp => cp.kode_cp === 'SAS' && cp.is_active === true && String(cp.fase) === tingkat)
+      // Default STS/SAS di kelola nilai sumatif: keduanya tampil di tiap semester; create on select jika belum ada
       const specialOptions = []
-      if (hasActiveSTS) specialOptions.push(stsOption)
-      if (hasActiveSAS) specialOptions.push(sasOption)
+      specialOptions.push(stsOption)
+      specialOptions.push(sasOption)
       
-      // Filter CP by:
-      // 1. fase (tingkat) must match kelas tingkat
-      // 2. is_active must be true
-      // 3. Exclude STS and SAS from database (we add them manually)
-      // 4. Filter by target based on semester:
-      //    - Semester 1: target = 'tengah_semester' or NULL (CP biasa)
-      //    - Semester 2: target = 'akhir_semester' or NULL (CP biasa)
+      // Filter CP by fase, is_active, semester (field semester di CP), exclude STS/SAS
       const filteredCP = allCP.filter(cp => {
-        // Filter by tingkat (fase) - must match kelas tingkat
-        // Only include active CP
-        // Also exclude STS and SAS if they exist in database
         if (cp.fase !== tingkat || cp.is_active === false || cp.kode_cp === 'STS' || cp.kode_cp === 'SAS') {
           return false
         }
-        
-        // Filter by target based on semester
-        if (selectedSemester.value === '1') {
-          // Semester 1: only show CP with target 'tengah_semester' or NULL
-          return cp.target === 'tengah_semester' || !cp.target
-        } else if (selectedSemester.value === '2') {
-          // Semester 2: only show CP with target 'akhir_semester' or NULL
-          return cp.target === 'akhir_semester' || !cp.target
-        }
-        
-        // If semester not selected, show all (shouldn't happen)
-        return true
+        return String(cp.semester || '') === String(selectedSemester.value)
       })
     
     // Map to options with label
@@ -866,16 +849,15 @@ const onFormSemesterChange = async () => {
       const response = await axios.get(`/guru/capaian-pembelajaran/mapel/${formMapel.value}`)
       const allCP = response.data.capaian_pembelajaran || []
       
-      // Hanya tampilkan STS/SAS jika ada CP aktif di database
-      const hasActiveSTS = allCP.some(cp => cp.kode_cp === 'STS' && cp.is_active === true && String(cp.fase) === tingkat)
-      const hasActiveSAS = allCP.some(cp => cp.kode_cp === 'SAS' && cp.is_active === true && String(cp.fase) === tingkat)
+      // Default STS/SAS di tambah nilai: keduanya tampil di tiap semester
       const specialOptions = []
-      if (hasActiveSTS) specialOptions.push(stsOption)
-      if (hasActiveSAS) specialOptions.push(sasOption)
+      specialOptions.push(stsOption)
+      specialOptions.push(sasOption)
       
-      // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
+      // Filter CP by fase, is_active, semester (field semester di CP), exclude STS/SAS
       const filteredCP = allCP.filter(cp => {
-        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
+        if (cp.fase !== tingkat || cp.is_active === false || cp.kode_cp === 'STS' || cp.kode_cp === 'SAS') return false
+        return String(cp.semester || '') === String(formSemester.value)
       })
       
       const cpOptionsMapped = filteredCP.map(cp => ({
@@ -886,7 +868,6 @@ const onFormSemesterChange = async () => {
         label: `${cp.kode_cp} - ${cp.deskripsi?.substring(0, 50)}${cp.deskripsi?.length > 50 ? '...' : ''}`
       }))
       
-      // Combine: STS/SAS (hanya yang aktif), then other CP
       formCPOptions.value = [...specialOptions, ...cpOptionsMapped]
     } catch (error) {
       console.error('Failed to fetch CP:', error)
@@ -1145,16 +1126,15 @@ const editNilai = async (nilai) => {
       const cpResponse = await axios.get(`/guru/capaian-pembelajaran/mapel/${formMapel.value}`)
       const allCP = cpResponse.data.capaian_pembelajaran || []
       
-      // Hanya tampilkan STS/SAS jika ada CP aktif di database
-      const hasActiveSTS = allCP.some(cp => cp.kode_cp === 'STS' && cp.is_active === true && String(cp.fase) === tingkat)
-      const hasActiveSAS = allCP.some(cp => cp.kode_cp === 'SAS' && cp.is_active === true && String(cp.fase) === tingkat)
+      // Default STS/SAS di tambah nilai: keduanya tampil di tiap semester
       const specialOptions = []
-      if (hasActiveSTS) specialOptions.push(stsOption)
-      if (hasActiveSAS) specialOptions.push(sasOption)
+      specialOptions.push(stsOption)
+      specialOptions.push(sasOption)
       
-      // Filter CP by fase, is_active, and exclude STS/SAS if they exist in database
+      // Filter CP by fase, is_active, semester (field semester di CP), exclude STS/SAS
       const filteredCP = allCP.filter(cp => {
-        return cp.fase === tingkat && cp.is_active !== false && cp.kode_cp !== 'STS' && cp.kode_cp !== 'SAS'
+        if (cp.fase !== tingkat || cp.is_active === false || cp.kode_cp === 'STS' || cp.kode_cp === 'SAS') return false
+        return String(cp.semester || '') === String(formSemester.value)
       })
       
       const cpOptionsMapped = filteredCP.map(cp => ({
@@ -1255,7 +1235,16 @@ const deleteNilai = async () => {
 }
 
 // Lifecycle
-onMounted(() => {
-  fetchMapel()
+onMounted(async () => {
+  const kelasIdFromQuery = route.query.kelas_id
+  const mapelData = await fetchMapel(kelasIdFromQuery || undefined)
+  if (kelasIdFromQuery && mapelData.length > 0) {
+    selectedMapel.value = mapelData[0].id
+    await fetchKelas()
+    const kelasExists = kelasOptions.value.some(k => k.id == kelasIdFromQuery || k.id === kelasIdFromQuery)
+    if (kelasExists) {
+      selectedKelas.value = kelasIdFromQuery
+    }
+  }
 })
 </script>

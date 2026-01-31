@@ -32,6 +32,8 @@ import AdminP5KelompokIndex from './pages/admin/p5/Kelompok.vue'
 import CetakRaporHasilBelajarIndex from './pages/admin/cetak-rapor/hasil-belajar/Index.vue'
 import CetakRaporP5Index from './pages/admin/cetak-rapor/p5/Index.vue'
 import CetakRaporLeggerIndex from './pages/admin/cetak-rapor/legger/Index.vue'
+import CetakRaporTranskripIndex from './pages/admin/cetak-rapor/transkrip/Index.vue'
+import DownloadNilaiUkkIndex from './pages/admin/download-nilai-ukk/Index.vue'
 import TahunAjaranIndex from './pages/admin/tahun-ajaran/Index.vue'
 import UserIndex from './pages/admin/user/Index.vue'
 import WaliKelasIndex from './pages/admin/wali-kelas/Index.vue'
@@ -54,6 +56,7 @@ import NilaiSumatifWaliKelasIndex from './pages/wali-kelas/nilai-sumatif/Index.v
 import NilaiEkstrakurikulerWaliKelasIndex from './pages/wali-kelas/nilai-ekstrakurikuler/Index.vue'
 import NilaiPklWaliKelasIndex from './pages/wali-kelas/nilai-pkl/Index.vue'
 import KetidakhadiranWaliKelasIndex from './pages/wali-kelas/ketidakhadiran/Index.vue'
+import CatatanWaliKelasIndex from './pages/wali-kelas/catatan-wali-kelas/Index.vue'
 import CekPenilaianStsIndex from './pages/wali-kelas/cek-penilaian/sts/Index.vue'
 import CekPenilaianSasIndex from './pages/wali-kelas/cek-penilaian/sas/Index.vue'
 import CekPenilaianP5Index from './pages/wali-kelas/cek-penilaian/p5/Index.vue'
@@ -66,12 +69,12 @@ import CetakRaporProfilSiswaIndex from './pages/wali-kelas/cetak-rapor/profil-si
 import KepalaSekolahDashboard from './pages/kepala-sekolah/Dashboard.vue'
 import RaporApprovalIndex from './pages/kepala-sekolah/rapor-approval/Index.vue'
 import RaporApprovalBelajar from './pages/kepala-sekolah/rapor-approval/Belajar.vue'
-import RaporApprovalP5 from './pages/kepala-sekolah/rapor-approval/P5.vue'
 import RekapIndex from './pages/kepala-sekolah/rekap/Index.vue'
 
 // Siswa pages
 import SiswaDashboard from './pages/siswa/Dashboard.vue'
 import RaporSiswaIndex from './pages/siswa/rapor/Index.vue'
+import RaporP5SiswaIndex from './pages/siswa/rapor/P5.vue'
 import NilaiSiswaIndex from './pages/siswa/nilai/Index.vue'
 
 // Store
@@ -222,6 +225,16 @@ const routes = [
           component: CetakRaporLeggerIndex
       },
       {
+        path: 'cetak-rapor/nilai-ukk',
+        name: 'admin.cetak-rapor.nilai-ukk',
+        component: DownloadNilaiUkkIndex
+      },
+      {
+        path: 'cetak-rapor/transkrip',
+        name: 'admin.cetak-rapor.transkrip',
+        component: CetakRaporTranskripIndex
+      },
+      {
         path: 'tahun-ajaran',
         name: 'admin.tahun-ajaran.index',
         component: TahunAjaranIndex
@@ -313,6 +326,11 @@ const routes = [
         component: KetidakhadiranWaliKelasIndex
       },
       {
+        path: 'catatan-wali-kelas',
+        name: 'wali-kelas.catatan-wali-kelas.index',
+        component: CatatanWaliKelasIndex
+      },
+      {
         path: 'nilai-pkl',
         name: 'wali-kelas.nilai-pkl.index',
         component: NilaiPklWaliKelasIndex
@@ -386,11 +404,6 @@ const routes = [
         component: RaporApprovalBelajar
       },
       {
-        path: 'rapor-approval/p5',
-        name: 'kepala-sekolah.rapor-approval.p5',
-        component: RaporApprovalP5
-      },
-      {
         path: 'rekap',
         name: 'kepala-sekolah.rekap.index',
         component: RekapIndex
@@ -421,7 +434,7 @@ const routes = [
       {
         path: 'rapor/p5',
         name: 'siswa.rapor.p5',
-        component: RaporSiswaIndex
+        component: RaporP5SiswaIndex
       },
       {
         path: 'nilai',

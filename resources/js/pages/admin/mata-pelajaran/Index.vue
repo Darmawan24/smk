@@ -58,6 +58,12 @@
           </div>
         </template>
 
+        <template #cell-kelompok="{ item }">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium" :class="getKelompokBadgeClass(item.kelompok)">
+            {{ getKelompokLabel(item.kelompok) }}
+          </span>
+        </template>
+
         <template #cell-kkm="{ item }">
           <div class="flex items-center">
             <span class="text-sm font-medium text-gray-900">{{ item.kkm }}</span>
@@ -141,6 +147,17 @@
               placeholder="Masukkan nama mata pelajaran lengkap"
               required
               :error="errors.nama_mapel"
+            />
+            <FormField
+              v-model="form.kelompok"
+              type="select"
+              label="Kategori Mata Pelajaran"
+              placeholder="Pilih kategori"
+              :options="kelompokOptions"
+              option-value="value"
+              option-label="label"
+              required
+              :error="errors.kelompok"
             />
             <FormField
               v-model="form.kkm"
@@ -230,6 +247,7 @@ const showToggleStatusConfirm = ref(false)
 const form = reactive({
   kode_mapel: '',
   nama_mapel: '',
+  kelompok: 'umum',
   kkm: 75,
   guru_id: '',
   kelas_ids: []
@@ -242,9 +260,17 @@ const filters = reactive({
   search: ''
 })
 
+// Kategori mata pelajaran (3 opsi)
+const kelompokOptions = [
+  { value: 'umum', label: 'Mata Pelajaran Umum' },
+  { value: 'kejuruan', label: 'Mata Pelajaran Kejuruan' },
+  { value: 'muatan_lokal', label: 'Muatan Lokal' }
+]
+
 // Table columns
 const columns = [
   { key: 'kode_mapel', label: 'Kode & Nama', sortable: true },
+  { key: 'kelompok', label: 'Kategori' },
   { key: 'guru', label: 'Guru' },
   { key: 'kelas', label: 'Kelas' },
   { key: 'kkm', label: 'KKM' },
@@ -313,6 +339,7 @@ const fetchKelas = async () => {
 const resetForm = () => {
   form.kode_mapel = ''
   form.nama_mapel = ''
+  form.kelompok = 'umum'
   form.kkm = 75
   form.guru_id = ''
   form.kelas_ids = []
@@ -336,6 +363,7 @@ const editMataPelajaran = async (item) => {
     isEditing.value = true
     form.kode_mapel = fullData.kode_mapel
     form.nama_mapel = fullData.nama_mapel
+    form.kelompok = fullData.kelompok || 'umum'
     form.kkm = fullData.kkm
     form.guru_id = fullData.guru?.id || fullData.guru_id || ''
     
@@ -390,6 +418,7 @@ const submitForm = async () => {
     const formData = {
       kode_mapel: form.kode_mapel,
       nama_mapel: form.nama_mapel,
+      kelompok: form.kelompok,
       kkm: Number.parseInt(form.kkm, 10),
       guru_id: Number.parseInt(form.guru_id, 10),
       kelas_ids: kelasIdsArray.map(id => {
@@ -463,6 +492,20 @@ const getStatusBadge = (isActive) => {
   return isActive
     ? 'bg-green-100 text-green-800'
     : 'bg-gray-100 text-gray-800'
+}
+
+const getKelompokLabel = (kelompok) => {
+  const o = kelompokOptions.find(k => k.value === kelompok)
+  return o ? o.label : (kelompok || '-')
+}
+
+const getKelompokBadgeClass = (kelompok) => {
+  switch (kelompok) {
+    case 'umum': return 'bg-blue-100 text-blue-800'
+    case 'kejuruan': return 'bg-amber-100 text-amber-800'
+    case 'muatan_lokal': return 'bg-green-100 text-green-800'
+    default: return 'bg-gray-100 text-gray-800'
+  }
 }
 
 // Lifecycle

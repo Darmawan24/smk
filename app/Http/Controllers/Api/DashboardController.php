@@ -85,8 +85,10 @@ class DashboardController extends Controller
             ->with('kelas.jurusan')
             ->get();
 
-        // Get unique classes from mata pelajaran
-        $kelasIds = $mataPelajaran->pluck('kelas_id')->unique()->filter();
+        // Get unique classes from mata pelajaran (many-to-many via kelas_mata_pelajaran pivot)
+        $kelasIds = $mataPelajaran->flatMap(function ($mapel) {
+            return $mapel->kelas->pluck('id');
+        })->unique()->filter()->values();
         $kelas = Kelas::whereIn('id', $kelasIds)
             ->with('jurusan')
             ->withCount(['siswa' => function ($query) {
@@ -96,9 +98,6 @@ class DashboardController extends Controller
 
         // Calculate total siswa from all classes
         $totalSiswa = $kelas->sum('siswa_count');
-
-        // Get first mata pelajaran (for display)
-        $firstMapel = $mataPelajaran->first();
 
         // Get recent grades
         $recentGrades = Nilai::with(['siswa.user', 'mataPelajaran', 'siswa.kelas'])
@@ -137,10 +136,7 @@ class DashboardController extends Controller
         $stats = [
             'total_kelas' => $kelas->count(),
             'total_siswa' => $totalSiswa,
-            'mata_pelajaran' => $firstMapel ? [
-                'id' => $firstMapel->id,
-                'nama_mapel' => $firstMapel->nama_mapel,
-            ] : null,
+            'total_mapel' => $mataPelajaran->count(),
         ];
 
         return response()->json([
@@ -241,6 +237,7 @@ class DashboardController extends Controller
         $tahunAjaran = TahunAjaran::where('is_active', true)->first();
 
         $stats = [
+            'tahun_ajaran_aktif' => $tahunAjaran ? ['id' => $tahunAjaran->id, 'tahun' => $tahunAjaran->tahun] : null,
             'overview' => [
                 'total_siswa' => Siswa::where('status', 'aktif')->count(),
                 'total_guru' => Guru::where('status', 'aktif')->count(),
@@ -253,6 +250,20 @@ class DashboardController extends Controller
                 'waiting_approval' => Rapor::where('tahun_ajaran_id', $tahunAjaran->id)->where('status', 'draft')->count(),
                 'approved' => Rapor::where('tahun_ajaran_id', $tahunAjaran->id)->where('status', 'approved')->count(),
                 'published' => Rapor::where('tahun_ajaran_id', $tahunAjaran->id)->where('status', 'published')->count(),
+            ],
+            'rapor_approval_stats' => [
+                'pending' => Rapor::where('tahun_ajaran_id', $tahunAjaran->id)
+                    ->where(function ($q) {
+                        $q->where('status', 'pending')
+                            ->orWhere(function ($q2) {
+                                $q2->where('status', 'draft')->whereNull('approved_at');
+                            });
+                    })->count(),
+                'approved' => Rapor::where('tahun_ajaran_id', $tahunAjaran->id)
+                    ->whereIn('status', ['approved', 'published'])->count(),
+                'rejected' => Rapor::where('tahun_ajaran_id', $tahunAjaran->id)
+                    ->where('status', 'rejected')->count(),
+                'total' => Rapor::where('tahun_ajaran_id', $tahunAjaran->id)->count(),
             ],
             'academic_performance' => DB::table('nilai')
                 ->join('mata_pelajaran', 'nilai.mata_pelajaran_id', '=', 'mata_pelajaran.id')
@@ -307,11 +318,12 @@ class DashboardController extends Controller
 
         $stats = [
             'profile' => [
+                'nama_lengkap' => $siswa->nama_lengkap,
                 'nama' => $siswa->nama_lengkap,
                 'nis' => $siswa->nis,
                 'nisn' => $siswa->nisn,
-                'kelas' => $siswa->kelas->nama_kelas,
-                'jurusan' => $siswa->kelas->jurusan->nama_jurusan,
+                'kelas' => $siswa->kelas?->nama_kelas ?? null,
+                'jurusan' => $siswa->kelas?->jurusan?->nama_jurusan ?? null,
             ],
             'nilai' => Nilai::with('mataPelajaran')
                 ->where('siswa_id', $siswa->id)

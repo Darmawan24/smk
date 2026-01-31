@@ -30,9 +30,11 @@ use App\Http\Controllers\Api\WaliKelas\NilaiPklController;
 use App\Http\Controllers\Api\KepalaSekolah\RaporApprovalController;
 use App\Http\Controllers\Api\KepalaSekolah\RekapController;
 use App\Http\Controllers\Api\Siswa\RaporSiswaController;
+use App\Http\Controllers\Api\Siswa\RaporP5SiswaController;
 use App\Http\Controllers\Api\Siswa\NilaiSiswaController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\Admin\UkkEventController;
+use App\Http\Controllers\Api\Admin\UkkController as AdminUkkController;
 use App\Http\Controllers\Api\Guru\UkkController as GuruUkkController;
 use App\Http\Controllers\Api\Admin\P5Controller as AdminP5Controller;
 use App\Http\Controllers\Api\Admin\CetakRaporController;
@@ -101,6 +103,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('ekstrakurikuler/{ekstrakurikuler}/assign-pembina', [EkstrakurikulerController::class, 'assignPembina']);
 
         Route::apiResource('pkl', PklController::class);
+        Route::get('ukk/kelas-list', [AdminUkkController::class, 'kelasList']);
+        Route::get('ukk/export', [AdminUkkController::class, 'exportExcel']);
+        Route::apiResource('ukk', AdminUkkController::class);
         Route::get('ukk-events/lookup', [UkkEventController::class, 'lookup']);
         Route::apiResource('ukk-events', UkkEventController::class);
         Route::get('p5/available-guru', [AdminP5Controller::class, 'availableGuru']);
@@ -124,6 +129,9 @@ Route::middleware('auth:sanctum')->group(function () {
         
         Route::get('cetak-rapor/legger/{kelas}', [CetakRaporController::class, 'legger']);
         Route::get('cetak-rapor/legger/{kelas}/download', [CetakRaporController::class, 'downloadLegger']);
+
+        Route::get('cetak-rapor/transkrip', [CetakRaporController::class, 'transkripList']);
+        Route::get('cetak-rapor/transkrip/{siswa}/download', [CetakRaporController::class, 'transkripDownload']);
     });
 
     // Guru routes
@@ -193,7 +201,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('ketidakhadiran/batch-update', [KehadiranController::class, 'batchUpdate']);
         Route::put('ketidakhadiran/{kehadiran}', [KehadiranController::class, 'update']);
 
-        // Catatan Akademik
+        // Catatan Akademik (Catatan Wali Kelas)
+        Route::get('catatan-akademik/list', [CatatanAkademikController::class, 'listByKelas']);
+        Route::post('catatan-akademik/batch-update', [CatatanAkademikController::class, 'batchUpdate']);
         Route::apiResource('catatan-akademik', CatatanAkademikController::class);
         Route::get('catatan-akademik/siswa/{siswa}', [CatatanAkademikController::class, 'bySiswa']);
 
@@ -203,6 +213,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('cek-penilaian/sas', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'sas']);
         Route::get('cek-penilaian/sas/{mataPelajaran}', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'sasDetail']);
         Route::get('cek-penilaian/p5', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'p5']);
+        Route::get('cek-penilaian/p5/{p5}', [\App\Http\Controllers\Api\WaliKelas\CekPenilaianController::class, 'p5Detail']);
 
         // Nilai Ekstrakurikuler
         Route::get('nilai-ekstrakurikuler/siswa', [NilaiEkstrakurikulerController::class, 'getSiswa']);
@@ -228,6 +239,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('cetak-rapor/belajar/{siswa}/download', [CetakRaporBelajarController::class, 'download']);
         Route::get('cetak-rapor/belajar/{siswa}/transkrip', [CetakRaporBelajarController::class, 'transkrip']);
 
+        // Cetak Rapor P5 (sama dengan admin, hanya siswa kelas wali)
+        Route::get('cetak-rapor/p5', [\App\Http\Controllers\Api\WaliKelas\CetakRaporP5Controller::class, 'hasilP5']);
+        Route::get('cetak-rapor/p5/{siswa}', [\App\Http\Controllers\Api\WaliKelas\CetakRaporP5Controller::class, 'detailHasilP5']);
+        Route::get('cetak-rapor/p5/{siswa}/preview', [\App\Http\Controllers\Api\WaliKelas\CetakRaporP5Controller::class, 'previewHasilP5']);
+        Route::get('cetak-rapor/p5/{siswa}/download', [\App\Http\Controllers\Api\WaliKelas\CetakRaporP5Controller::class, 'downloadHasilP5']);
+
+        // Cetak Legger (sama dengan admin, hanya kelas wali)
+        Route::get('cetak-rapor/legger/{kelas}', [\App\Http\Controllers\Api\WaliKelas\CetakLeggerController::class, 'legger']);
+        Route::get('cetak-rapor/legger/{kelas}/download', [\App\Http\Controllers\Api\WaliKelas\CetakLeggerController::class, 'downloadLegger']);
+
         // Cetak Profil Siswa (Biodata Rapor)
         Route::get('cetak-rapor/profil-siswa', [CetakProfilSiswaController::class, 'index']);
         Route::get('cetak-rapor/profil-siswa/{siswa}/download', [CetakProfilSiswaController::class, 'download']);
@@ -238,16 +259,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Rapor Approval (Belajar)
         Route::get('rapor-approval', [RaporApprovalController::class, 'index']);
         Route::get('rapor-approval/pending', [RaporApprovalController::class, 'pending']);
+        Route::get('rapor-approval/preview-rapor-belajar/{siswa}', [RaporApprovalController::class, 'previewRaporBelajar']);
+        Route::post('rapor-approval/approve-siswa', [RaporApprovalController::class, 'approveBySiswa']);
         Route::get('rapor-approval/{rapor}', [RaporApprovalController::class, 'show']);
         Route::post('rapor-approval/{rapor}/approve', [RaporApprovalController::class, 'approve']);
+        Route::post('rapor-approval/{rapor}/unapprove', [RaporApprovalController::class, 'unapprove']);
         Route::post('rapor-approval/{rapor}/reject', [RaporApprovalController::class, 'reject']);
         Route::post('rapor-approval/bulk-approve', [RaporApprovalController::class, 'batchApprove']);
-        
-        // Rapor P5 Approval
-        Route::get('rapor-approval-p5', [RaporApprovalController::class, 'indexP5']);
-        Route::get('rapor-approval-p5/{siswa}', [RaporApprovalController::class, 'showP5']);
-        Route::post('rapor-approval-p5/{siswa}/approve', [RaporApprovalController::class, 'approveP5']);
-        Route::post('rapor-approval-p5/{siswa}/reject', [RaporApprovalController::class, 'rejectP5']);
 
         // Rekap & Reports
         Route::get('rekap/nilai', [RekapController::class, 'nilai']);
@@ -260,10 +278,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Siswa routes
     Route::middleware('role:siswa')->prefix('siswa')->group(function () {
-        // View Rapor
-        Route::get('rapor', [RaporSiswaController::class, 'index']);
-        Route::get('rapor/{rapor}', [RaporSiswaController::class, 'show']);
-        Route::get('rapor/{rapor}/download', [RaporSiswaController::class, 'download']);
+        // View Rapor Belajar (detail per periode STS/SAS)
+        Route::get('rapor/detail', [RaporSiswaController::class, 'detail']);
+        // View Rapor P5 (detail only)
+        Route::get('rapor/p5/detail', [RaporP5SiswaController::class, 'detail']);
 
         // View Nilai
         Route::get('nilai', [NilaiSiswaController::class, 'index']);

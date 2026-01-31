@@ -142,7 +142,7 @@
               v-model="editForm.old_kelas_id"
               type="select"
               label="Kelas Saat Ini"
-              placeholder="Pilih kelas yang akan diubah"
+              placeholder="Pilih kelas"
               :options="selectedWaliKelas?.kelas_as_wali || []"
               option-value="id"
               option-label="nama_kelas"
@@ -454,7 +454,7 @@ const submitEdit = async () => {
     editErrors.value = {}
     
     if (!editForm.old_kelas_id) {
-      toast.error('Pilih kelas yang akan diubah terlebih dahulu')
+      toast.error('Pilih kelas terlebih dahulu')
       editing.value = false
       return
     }
@@ -520,9 +520,10 @@ const submitEdit = async () => {
       return
     }
 
-    // Update only kelas_id
+    // Update kelas_id (kirim guru_id agar backend punya referensi jika record guru_id kosong)
     await axios.put(`/admin/wali-kelas/${waliKelasId}`, {
-      kelas_id: editForm.kelas_id
+      kelas_id: editForm.kelas_id,
+      guru_id: selectedWaliKelas.value.guru_id
     })
     
     toast.success('Penetapan kelas berhasil diperbarui')

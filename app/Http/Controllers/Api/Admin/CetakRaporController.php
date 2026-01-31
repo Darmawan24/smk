@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Api\Concerns\BuildsLeggerData;
+use App\Http\Controllers\Api\Concerns\BuildsRaporP5Data;
+use App\Http\Controllers\Api\Concerns\CalculatesNilaiAkhirRapor;
 use App\Http\Controllers\Controller;
 use App\Models\Rapor;
 use App\Models\Siswa;
@@ -29,94 +32,145 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
  */
 class CetakRaporController extends Controller
 {
+    use BuildsLeggerData;
+    use BuildsRaporP5Data;
+    use CalculatesNilaiAkhirRapor;
+
     /**
-     * Get rapor hasil belajar list.
+     * Get rapor hasil belajar list (daftar siswa per kelas, sama seperti Wali Kelas).
      *
      * @param  Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function hasilBelajar(Request $request)
     {
-        // Get active tahun ajaran automatically
+        $request->validate([
+            'kelas_id' => 'required|exists:kelas,id',
+            'semester' => 'required|in:1,2',
+            'jenis' => 'required|in:sts,sas',
+        ]);
+
         $tahunAjaran = TahunAjaran::where('is_active', true)->first();
-        
-        if (!$tahunAjaran) {
+        if (! $tahunAjaran) {
             return response()->json([
                 'message' => 'Tahun ajaran aktif tidak ditemukan',
             ], 404);
         }
 
-        $query = Rapor::with([
-            'siswa.user',
-            'siswa.kelas.jurusan',
-            'tahunAjaran',
-            'approver'
-        ])->where('tahun_ajaran_id', $tahunAjaran->id);
+        $requestJenis = strtolower($request->jenis);
+        $requestSemester = $request->semester;
 
-        if ($request->has('search')) {
+        $siswaQuery = Siswa::where('kelas_id', $request->kelas_id)
+            ->where('status', 'aktif')
+            ->orderBy('nama_lengkap');
+
+        if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('siswa', function ($q) use ($search) {
+            $siswaQuery->where(function ($q) use ($search) {
                 $q->where('nama_lengkap', 'like', "%{$search}%")
-                  ->orWhere('nis', 'like', "%{$search}%");
+                    ->orWhere('nis', 'like', "%{$search}%");
             });
         }
 
-        if ($request->has('kelas_id')) {
-            $query->where('kelas_id', $request->kelas_id);
+        $siswaList = $siswaQuery->get();
+        $raporBySiswa = Rapor::where('tahun_ajaran_id', $tahunAjaran->id)
+            ->where('kelas_id', $request->kelas_id)
+            ->whereIn('siswa_id', $siswaList->pluck('id'))
+            ->whereIn('status', ['approved', 'published'])
+            ->get()
+            ->keyBy('siswa_id');
+
+        $result = [];
+        $no = 1;
+        foreach ($siswaList as $siswa) {
+            $periodeSudahDiisi = Nilai::isPeriodeFilledForSiswa($siswa->id, $tahunAjaran->id, $requestJenis, $requestSemester);
+            $canCetakRapor = $periodeSudahDiisi
+                && $this->canCetakRapor($siswa->id, $tahunAjaran->id, $requestSemester, $requestJenis)
+                && $this->hasApprovedRapor($siswa->id, $tahunAjaran->id);
+            $rapor = $raporBySiswa->get($siswa->id);
+            $result[] = [
+                'id' => $siswa->id,
+                'no' => $no++,
+                'nama_lengkap' => $siswa->nama_lengkap,
+                'nisn' => $siswa->nisn ?? '-',
+                'nis' => $siswa->nis ?? '-',
+                'can_cetak_rapor' => $canCetakRapor,
+                'rapor' => $rapor ? [
+                    'id' => $rapor->id,
+                    'tahun_ajaran_id' => $rapor->tahun_ajaran_id,
+                    'semester' => $requestSemester,
+                    'jenis' => $requestJenis,
+                    'status' => $rapor->status,
+                ] : null,
+                'siswa' => [
+                    'id' => $siswa->id,
+                    'nama_lengkap' => $siswa->nama_lengkap,
+                    'nisn' => $siswa->nisn ?? '-',
+                    'nis' => $siswa->nis ?? '-',
+                ],
+                'tahun_ajaran' => [
+                    'id' => $tahunAjaran->id,
+                    'tahun' => $tahunAjaran->tahun,
+                    'semester' => $tahunAjaran->semester,
+                ],
+            ];
         }
 
-        // Filter by semester - check if siswa has nilai with this semester
-        if ($request->has('semester') && $request->semester) {
-            $query->whereHas('siswa.nilai', function ($q) use ($tahunAjaran, $request) {
-                $q->where('tahun_ajaran_id', $tahunAjaran->id)
-                  ->where('semester', $request->semester);
-            });
+        return response()->json([
+            'data' => $result,
+            'tahun_ajaran' => $tahunAjaran,
+        ]);
+    }
+
+    protected function canCetakRapor(int $siswaId, int $tahunAjaranId, string $semester, string $jenis = 'sas'): bool
+    {
+        $cpTarget = $jenis === 'sas' ? 'akhir_semester' : 'tengah_semester';
+        $semesterVal = (string) $semester;
+        $nilaiList = Nilai::where('siswa_id', $siswaId)
+            ->where('tahun_ajaran_id', $tahunAjaranId)
+            ->whereIn('semester', [$semesterVal, (int) $semester])
+            ->whereHas('capaianPembelajaran', fn ($q) => $q->where('target', $cpTarget)->where('is_active', true))
+            ->with(['mataPelajaran', 'capaianPembelajaran'])
+            ->get();
+
+        if ($nilaiList->isEmpty()) {
+            return false;
         }
 
-        if ($request->has('status')) {
-            // Map status: 'disetujui' -> 'approved', 'tidak disetujui' -> others
-            if ($request->status === 'disetujui') {
-                $query->where('status', 'approved');
-            } elseif ($request->status === 'tidak disetujui') {
-                $query->where('status', '!=', 'approved');
-            } else {
-                $query->where('status', $request->status);
+        $nilaiByMapel = $nilaiList->groupBy('mata_pelajaran_id');
+        $siswa = Siswa::with('kelas')->find($siswaId);
+        if (! $siswa || ! $siswa->kelas) {
+            return false;
+        }
+
+        $mapelKelas = $siswa->kelas->mataPelajaran()
+            ->where('mata_pelajaran.is_active', true)
+            ->get();
+
+        foreach ($mapelKelas as $mapel) {
+            $nilaiGroup = $nilaiByMapel->get($mapel->id, collect());
+            $nilaiRapor = $nilaiGroup->isNotEmpty()
+                ? $this->calculateNilaiAkhirRapor($nilaiGroup)
+                : null;
+
+            if ($nilaiRapor === '-' || $nilaiRapor === null) {
+                return false;
+            }
+            $kkm = $mapel->kkm ?? 75;
+            if ((float) $nilaiRapor < (float) $kkm) {
+                return false;
             }
         }
 
-        // Only show approved or published rapor for printing if no status filter
-        if (!$request->has('status')) {
-            $query->whereIn('status', ['approved', 'published']);
-        }
+        return true;
+    }
 
-        $rapor = $query->orderBy('created_at', 'desc')->paginate($request->get('per_page', 15));
-
-        // Add semester information to each rapor
-        $rapor->getCollection()->transform(function ($item) use ($tahunAjaran, $request) {
-            // If semester filter is provided, use it
-            if ($request->has('semester') && $request->semester) {
-                $item->semester = $request->semester;
-            } else {
-                // Get the most common semester from nilai for this siswa
-                $semesterCounts = Nilai::where('siswa_id', $item->siswa_id)
-                    ->where('tahun_ajaran_id', $tahunAjaran->id)
-                    ->whereNotNull('semester')
-                    ->selectRaw('semester, COUNT(*) as count')
-                    ->groupBy('semester')
-                    ->orderByDesc('count')
-                    ->first();
-                
-                if ($semesterCounts) {
-                    $item->semester = $semesterCounts->semester;
-                } else {
-                    $item->semester = null;
-                }
-            }
-            
-            return $item;
-        });
-
-        return response()->json($rapor);
+    protected function hasApprovedRapor(int $siswaId, int $tahunAjaranId): bool
+    {
+        return Rapor::where('siswa_id', $siswaId)
+            ->where('tahun_ajaran_id', $tahunAjaranId)
+            ->whereIn('status', ['approved', 'published'])
+            ->exists();
     }
 
     /**
@@ -173,38 +227,44 @@ class CetakRaporController extends Controller
     }
 
     /**
-     * Download rapor as PDF.
+     * Download rapor as PDF (sama dengan Kepala Sekolah / Wali Kelas - format kurmer).
      *
+     * @param  Request  $request  Query: semester (1|2), jenis (sts|sas), default semester=1, jenis=sas
      * @param  Rapor  $rapor
      * @return \Illuminate\Http\Response
      */
-    public function downloadHasilBelajar(Rapor $rapor)
+    public function downloadHasilBelajar(Request $request, Rapor $rapor)
     {
-        // Verify rapor is approved or published
         if (!in_array($rapor->status, ['approved', 'published'])) {
-            return response()->json([
-                'message' => 'Rapor belum disetujui',
-            ], 403);
+            return response()->json(['message' => 'Rapor belum disetujui'], 403);
         }
 
-        // Load all necessary data
-        $rapor->load([
-            'siswa.user',
-            'siswa.kelas.jurusan',
-            'tahunAjaran',
-            'approver'
-        ]);
+        $rapor->load(['siswa.user', 'siswa.kelas.jurusan', 'tahunAjaran', 'approver']);
+        $siswa = $rapor->siswa;
+        $tahunAjaranId = (int) $rapor->tahun_ajaran_id;
 
-        // For now, return JSON response
-        // TODO: Implement PDF generation using DomPDF or similar
-        return response()->json([
-            'message' => 'PDF generation will be implemented',
-            'rapor' => $rapor,
-        ]);
+        $semester = $request->filled('semester') ? (string) $request->semester : ($rapor->semester ?? '1');
+        if (!in_array($semester, ['1', '2'], true)) {
+            $semester = '1';
+        }
+        $jenis = $request->filled('jenis') ? strtolower($request->jenis) : 'sas';
+        if (!in_array($jenis, ['sts', 'sas'], true)) {
+            $jenis = 'sas';
+        }
 
-        // Future implementation:
-        // $pdf = PDF::loadView('rapor.hasil-belajar', compact('rapor'));
-        // return $pdf->download("rapor-{$rapor->siswa->nis}-{$rapor->tahunAjaran->tahun}.pdf");
+        try {
+            $controller = app(\App\Http\Controllers\Api\WaliKelas\CetakRaporBelajarController::class);
+            $data = $controller->buildRaporDataPublic($siswa, $tahunAjaranId, $semester, $jenis);
+            $titimangsa = $request->filled('titimangsa') ? $request->titimangsa : now()->format('Y-m-d');
+            $data['tanggal_rapor'] = \Carbon\Carbon::parse($titimangsa)->locale('id');
+            $pdf = Pdf::loadView('rapor.kurmer', $data);
+            $pdf->setPaper([0, 0, 595.28, 935.43], 'portrait'); // F4: 210mm x 330mm
+            $filename = "rapor-{$siswa->nis}-{$rapor->tahunAjaran->tahun}-s{$semester}.pdf";
+            return $pdf->download($filename);
+        } catch (\Throwable $e) {
+            \Log::error('Admin cetak rapor PDF error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['message' => 'Gagal menghasilkan PDF: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -288,111 +348,6 @@ class CetakRaporController extends Controller
     }
 
     /**
-     * Build payload detail rapor P5 (dari DB, dipakai untuk API dan PDF).
-     *
-     * @param  Request  $request
-     * @param  Siswa  $siswa
-     * @return array{siswa: \App\Models\Siswa, p5_projects: array, tahun_ajaran_id: mixed}
-     */
-    protected function getDetailHasilP5Payload(Request $request, Siswa $siswa): array
-    {
-        $siswa->load(['user', 'kelas.jurusan']);
-        $tahunAjaranId = $request->tahun_ajaran_id;
-
-        $nilaiP5Query = $siswa->nilaiP5()->with(['p5.tahunAjaran', 'p5.koordinator.user']);
-        if ($tahunAjaranId) {
-            $nilaiP5Query->whereHas('p5', function ($q) use ($tahunAjaranId) {
-                $q->where('tahun_ajaran_id', $tahunAjaranId);
-            });
-        }
-        $nilaiP5 = $nilaiP5Query->get();
-        $p5Ids = $nilaiP5->pluck('p5_id')->unique()->values();
-
-        $catatanByP5 = \Illuminate\Support\Facades\DB::table('p5_siswa')
-            ->where('siswa_id', $siswa->id)
-            ->whereIn('p5_id', $p5Ids)
-            ->pluck('catatan_proses', 'p5_id')
-            ->toArray();
-
-        // Ambil P5 dari DB (fresh) supaya elemen_sub dari kolom JSON terbaca
-        $p5List = P5::with(['koordinator', 'tahunAjaran', 'kelompok.guru', 'kelompok.siswa'])
-            ->whereIn('id', $p5Ids)
-            ->get()
-            ->keyBy('id');
-
-        $nilaiBySub = $nilaiP5->whereNotNull('sub_elemen')->keyBy(function ($n) {
-            return $n->p5_id . '|' . $n->sub_elemen;
-        });
-
-        $deskripsiReferensi = $this->getP5SubElemenDeskripsi();
-
-        $p5Projects = [];
-        foreach ($p5Ids as $p5Id) {
-            $p5 = $p5List->get($p5Id);
-            if (!$p5) {
-                continue;
-            }
-            $elemenSubRaw = $p5->elemen_sub;
-            $elemenSub = is_array($elemenSubRaw) ? $elemenSubRaw : (is_string($elemenSubRaw) ? json_decode($elemenSubRaw, true) ?? [] : []);
-            $subWithPredikat = [];
-            foreach ($elemenSub as $es) {
-                $es = is_array($es) ? $es : (array) $es;
-                $sub = trim((string) ($es['sub_elemen'] ?? ''));
-                if ($sub === '') {
-                    continue;
-                }
-                $key = $p5->id . '|' . $sub;
-                $nilaiRow = $nilaiBySub->get($key);
-                // Prioritas: dari DB (elemen_sub.deskripsi_tujuan), lalu config, lalu nama sub_elemen (wajib ada teks)
-                $deskripsiTujuan = isset($es['deskripsi_tujuan']) ? trim((string) $es['deskripsi_tujuan']) : '';
-                if ($deskripsiTujuan === '') {
-                    $deskripsiTujuan = $deskripsiReferensi[$sub] ?? $this->findDeskripsiByKey($deskripsiReferensi, $sub);
-                }
-                $deskripsiTujuan = ($deskripsiTujuan !== null && trim((string) $deskripsiTujuan) !== '')
-                    ? trim((string) $deskripsiTujuan)
-                    : $sub;
-                $subWithPredikat[] = [
-                    'elemen' => $es['elemen'] ?? '-',
-                    'sub_elemen' => $sub,
-                    'deskripsi_tujuan' => $deskripsiTujuan,
-                    'predikat' => $nilaiRow ? $nilaiRow->nilai : null,
-                    'predikat_label' => $nilaiRow ? $nilaiRow->nilai_description : '-',
-                ];
-            }
-            $fasilitator = $p5->koordinator ? $p5->koordinator->nama_lengkap : null;
-            foreach ($p5->kelompok ?? [] as $kel) {
-                $siswaIds = $kel->siswa->pluck('id')->toArray();
-                if (in_array($siswa->id, $siswaIds) && $kel->guru) {
-                    $fasilitator = $kel->guru->nama_lengkap;
-                    break;
-                }
-            }
-            $p5Projects[] = [
-                'id' => $p5->id,
-                'tema' => $p5->tema,
-                'judul' => $p5->judul,
-                'deskripsi' => $p5->deskripsi,
-                'dimensi' => $p5->dimensi ?? '-',
-                'koordinator' => $p5->koordinator ? ['nama' => $p5->koordinator->nama_lengkap] : null,
-                'fasilitator_nama' => $fasilitator,
-                'tahun_ajaran' => $p5->tahunAjaran ? [
-                    'tahun' => $p5->tahunAjaran->tahun,
-                    'semester' => $p5->tahunAjaran->semester,
-                    'label' => "{$p5->tahunAjaran->tahun} - Semester {$p5->tahunAjaran->semester}",
-                ] : null,
-                'elemen_sub' => $subWithPredikat,
-                'catatan_proses' => $catatanByP5[$p5->id] ?? null,
-            ];
-        }
-
-        return [
-            'siswa' => $siswa,
-            'p5_projects' => $p5Projects,
-            'tahun_ajaran_id' => $tahunAjaranId,
-        ];
-    }
-
-    /**
      * Get detail rapor hasil P5 for a student (per sub_elemen dengan predikat).
      *
      * @param  Request  $request
@@ -439,49 +394,6 @@ class CetakRaporController extends Controller
     }
 
     /**
-     * Build data for rapor P5 PDF view.
-     *
-     * @param  array  $payload  From detailHasilP5 response
-     * @param  Siswa  $siswa
-     * @return array
-     */
-    protected function buildRaporP5PdfData(array $payload, Siswa $siswa): array
-    {
-        $bulanIndo = [
-            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
-        ];
-        $now = now();
-        $tanggalCetak = $now->format('d') . ' ' . $bulanIndo[(int) $now->format('n')] . ' ' . $now->format('Y');
-        $waktuUnduh = $now->format('H.i') . ' ' . $now->format('d') . ' ' . $bulanIndo[(int) $now->format('n')] . ' ' . $now->format('Y');
-
-        $tahunAjaranAktif = TahunAjaran::where('is_active', true)->first();
-        $tahunPelajaran = $tahunAjaranAktif ? $tahunAjaranAktif->tahun : '';
-
-        $tingkat = $siswa->kelas->tingkat ?? null;
-        $fase = 'E';
-        if ($tingkat !== null && $tingkat !== '') {
-            $t = (string) $tingkat;
-            if (in_array($t, ['11', '12', 'XI', 'xI', 'XII', 'xII'])) {
-                $fase = 'F';
-            } elseif (in_array($t, ['10', 'X', 'x'])) {
-                $fase = 'E';
-            }
-        }
-
-        return [
-            'nama_sekolah' => config('app.school_name', 'SMKS Progresia Cianjur'),
-            'tahun_pelajaran' => $tahunPelajaran,
-            'fase' => $fase,
-            'siswa' => $payload['siswa'] ?? $siswa,
-            'tanggal_cetak' => $tanggalCetak,
-            'waktu_unduh' => $waktuUnduh,
-            'p5_projects' => $payload['p5_projects'] ?? [],
-        ];
-    }
-
-    /**
      * Get legger (grade book) for a class.
      *
      * @param  Request  $request
@@ -490,70 +402,12 @@ class CetakRaporController extends Controller
      */
     public function legger(Request $request, Kelas $kelas)
     {
-        $tahunAjaranId = $request->get('tahun_ajaran_id');
-        
-        if (!$tahunAjaranId) {
-            // Get active tahun ajaran if not provided
-            $tahunAjaran = TahunAjaran::where('is_active', true)->first();
-            if (!$tahunAjaran) {
-                return response()->json([
-                    'message' => 'Tahun ajaran aktif tidak ditemukan',
-                ], 404);
-            }
-            $tahunAjaranId = $tahunAjaran->id;
+        $payload = $this->getLeggerPayload($request, $kelas);
+        if (isset($payload['message'])) {
+            return response()->json($payload, 404);
         }
 
-        // Get all active students in the class
-        $siswa = $kelas->siswa()->where('status', 'aktif')->orderBy('nama_lengkap')->get();
-
-        // Get all mata pelajaran for this class (via pivot kelas_mata_pelajaran)
-        $mataPelajaran = $kelas->mataPelajaran()
-            ->where('is_active', true)
-            ->orderBy('nama_mapel')
-            ->get();
-
-        // Get all nilai for students in this class and tahun ajaran
-        $nilai = Nilai::whereIn('siswa_id', $siswa->pluck('id'))
-            ->where('tahun_ajaran_id', $tahunAjaranId)
-            ->with(['siswa.user', 'mataPelajaran'])
-            ->get();
-
-        // Fallback: jika kelas belum punya mapel di pivot, pakai mapel yang punya nilai di tahun ini
-        if ($mataPelajaran->isEmpty() && $nilai->isNotEmpty()) {
-            $mapelIds = $nilai->pluck('mata_pelajaran_id')->unique()->filter()->values();
-            $mataPelajaran = MataPelajaran::whereIn('id', $mapelIds)
-                ->where('is_active', true)
-                ->orderBy('nama_mapel')
-                ->get();
-        }
-
-        // Build legger data
-        $legger = [];
-        foreach ($siswa as $s) {
-            // Get nilai for this student, grouped by mata_pelajaran_id
-            $siswaNilai = $nilai->where('siswa_id', $s->id)
-                ->groupBy('mata_pelajaran_id')
-                ->map(function ($nilaiGroup) {
-                    return $nilaiGroup->first();
-                });
-            
-            $nilaiMap = [];
-            foreach ($siswaNilai as $mapelId => $nilaiItem) {
-                $nilaiMap[$mapelId] = $nilaiItem;
-            }
-            
-            $legger[] = [
-                'siswa' => $s->load('user'),
-                'nilai' => $nilaiMap,
-            ];
-        }
-
-        return response()->json([
-            'kelas' => $kelas->load('jurusan'),
-            'tahun_ajaran' => TahunAjaran::find($tahunAjaranId),
-            'mata_pelajaran' => $mataPelajaran,
-            'legger' => $legger,
-        ]);
+        return response()->json($payload);
     }
 
     /**
@@ -567,180 +421,103 @@ class CetakRaporController extends Controller
      */
     public function downloadLegger(Request $request, Kelas $kelas)
     {
-        $response = $this->legger($request, $kelas);
-        $payload = $response->getData(true);
-        if ($response->getStatusCode() !== 200 || isset($payload['message'])) {
-            return response()->json($payload, $response->getStatusCode());
+        $payload = $this->getLeggerPayload($request, $kelas);
+        if (isset($payload['message'])) {
+            return response()->json($payload, 404);
         }
 
-        $kelasModel = $kelas->load('jurusan');
-        $tahunAjaran = $payload['tahun_ajaran'] ?? null;
-        $mataPelajaran = $payload['mata_pelajaran'] ?? [];
-        $legger = $payload['legger'] ?? [];
-
-        $tahunAjaranId = is_array($tahunAjaran) ? ($tahunAjaran['id'] ?? null) : ($tahunAjaran->id ?? null);
-        $siswaIds = array_map(function ($item) {
-            $s = $item['siswa'] ?? $item;
-            return is_array($s) ? ($s['id'] ?? null) : $s->id;
-        }, $legger);
-        $siswaIds = array_filter($siswaIds);
-
-        $kehadiranBySiswa = [];
-        if ($tahunAjaranId && ! empty($siswaIds)) {
-            $kehadiran = Kehadiran::whereIn('siswa_id', $siswaIds)
-                ->where('tahun_ajaran_id', $tahunAjaranId)
-                ->get();
-            foreach ($kehadiran as $k) {
-                $sid = is_array($k->siswa_id) ? $k->siswa_id : $k->siswa_id;
-                $kehadiranBySiswa[$sid] = $k;
-            }
-        }
-
-        $namaSekolah = config('app.school_name', 'SMK');
-        $namaKelas = $kelasModel->nama_kelas ?? $kelas->nama_kelas;
-        $tahunLabel = is_array($tahunAjaran) ? ($tahunAjaran['tahun'] ?? '') : ($tahunAjaran->tahun ?? '');
-        $semester = is_array($tahunAjaran) ? ($tahunAjaran['semester'] ?? '1') : ($tahunAjaran->semester ?? '1');
-        $semesterText = ($semester == '2') ? 'GENAP' : 'GANJIL';
-
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Legger Nilai');
-
-        $numMapel = count($mataPelajaran);
-        $lastCol = 4 + $numMapel + 3; // No, Nama, NISN, NIS, mapel..., Sakit, Izin, Alpa
-        $colLetterLast = Coordinate::stringFromColumnIndex($lastCol);
-
-        // Baris 1: LEGER NILAI RAPOR SISWA TAHUN PELAJARAN ... GENAP/GANJIL (merged, center, bold)
-        $title1 = 'LEGER NILAI RAPOR SISWA TAHUN PELAJARAN ' . $tahunLabel . ' ' . $semesterText;
-        $sheet->setCellValue('A1', $title1);
-        $sheet->mergeCells("A1:{$colLetterLast}1");
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12);
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-        // Baris 2: SEKOLAH : {nama_sekolah}
-        $sheet->setCellValue('A2', 'SEKOLAH');
-        $sheet->setCellValue('C2', ': ' . strtoupper($namaSekolah));
-        $sheet->getStyle('A2')->getFont()->setBold(true);
-
-        // Baris 3: Kelas : {nama_kelas}
-        $sheet->setCellValue('A3', 'Kelas');
-        $sheet->setCellValue('C3', ': ' . $namaKelas);
-        $sheet->getStyle('A3')->getFont()->setBold(true);
-
-        // Baris 4: kosong
-        $headerRow = 5;
-
-        // Baris 5: Header tabel NO | NAMA SISWA | NISN | NIS | [Mapel sesuai kelas] | Sakit | Izin | Alpa
-        $sheet->setCellValue('A' . $headerRow, 'NO');
-        $sheet->setCellValue('B' . $headerRow, 'NAMA SISWA');
-        $sheet->setCellValue('C' . $headerRow, 'NISN');
-        $sheet->setCellValue('D' . $headerRow, 'NIS');
-        $col = 5;
-        foreach ($mataPelajaran as $mapel) {
-            $letter = Coordinate::stringFromColumnIndex($col);
-            $sheet->setCellValue($letter . $headerRow, $mapel['nama_mapel'] ?? $mapel->nama_mapel ?? '');
-            $col++;
-        }
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $headerRow, 'Sakit');
-        $col++;
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $headerRow, 'Izin');
-        $col++;
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $headerRow, 'Alpa');
-        $headerRange = "A{$headerRow}:{$colLetterLast}{$headerRow}";
-        $sheet->getStyle($headerRange)->getFont()->setBold(true);
-        $sheet->getStyle($headerRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle($headerRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        $sheet->getStyle($headerRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE0E0E0');
-
-        // Data siswa
-        $dataRow = $headerRow + 1;
-        foreach ($legger as $index => $item) {
-            $siswa = $item['siswa'] ?? $item;
-            $nilaiMap = $item['nilai'] ?? [];
-            $siswaId = is_array($siswa) ? ($siswa['id'] ?? null) : $siswa->id;
-            $kehadiran = $kehadiranBySiswa[$siswaId] ?? null;
-
-            $sheet->setCellValue('A' . $dataRow, $index + 1);
-            $sheet->setCellValue('B' . $dataRow, $siswa['nama_lengkap'] ?? $siswa->nama_lengkap ?? '');
-            $sheet->setCellValue('C' . $dataRow, $siswa['nisn'] ?? $siswa->nisn ?? '');
-            $sheet->setCellValue('D' . $dataRow, $siswa['nis'] ?? $siswa->nis ?? '');
-            $col = 5;
-            foreach ($mataPelajaran as $mapel) {
-                $mapelId = $mapel['id'] ?? $mapel->id ?? null;
-                $nilaiItem = $nilaiMap[$mapelId] ?? null;
-                $nilai = null;
-                if ($nilaiItem) {
-                    $nilai = $nilaiItem['nilai_akhir'] ?? $nilaiItem['nilai_rapor'] ?? $nilaiItem->nilai_akhir ?? $nilaiItem->nilai_rapor ?? null;
-                }
-                $letter = Coordinate::stringFromColumnIndex($col);
-                $sheet->setCellValue($letter . $dataRow, $nilai !== null ? (float) $nilai : '');
-                $col++;
-            }
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $dataRow, $kehadiran ? (int) $kehadiran->sakit : 0);
-            $col++;
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $dataRow, $kehadiran ? (int) $kehadiran->izin : 0);
-            $col++;
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $dataRow, $kehadiran ? (int) $kehadiran->tanpa_keterangan : 0);
-            $dataRange = "A{$dataRow}:{$colLetterLast}{$dataRow}";
-            $sheet->getStyle($dataRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-            $dataRow++;
-        }
-
-        foreach (range(1, $lastCol) as $c) {
-            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
-        }
-
-        $filename = 'Legger-Nilai-' . preg_replace('/[^a-zA-Z0-9\-_]/', '-', $namaKelas) . '.xlsx';
-
-        $writer = new XlsxWriter($spreadsheet);
-        $tempFile = tempnam(sys_get_temp_dir(), 'legger_');
-        $writer->save($tempFile);
-        $spreadsheet->disconnectWorksheets();
-        unset($spreadsheet, $writer);
-
-        return response()->download($tempFile, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ])->deleteFileAfterSend(true);
+        return $this->downloadLeggerAsExcel($payload, $kelas);
     }
 
     /**
-     * Load referensi deskripsi sub-elemen P5 (dari file config, tidak pakai cache).
+     * List siswa untuk cetak transkrip (filter: kelas_id, tahun_ajaran_id, semester, jenis).
      *
-     * @return array<string, string>
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
-    protected function getP5SubElemenDeskripsi(): array
+    public function transkripList(Request $request)
     {
-        $path = base_path('config/p5_sub_elemen_deskripsi.php');
-        if (file_exists($path)) {
-            $ref = require $path;
-            if (is_array($ref) && !empty($ref)) {
-                return $ref;
-            }
+        $tahunAjaranId = $request->filled('tahun_ajaran_id') ? (int) $request->tahun_ajaran_id : null;
+        $kelasId = $request->filled('kelas_id') ? (int) $request->kelas_id : null;
+
+        if (! $tahunAjaranId) {
+            $tahunAjaran = TahunAjaran::where('is_active', true)->first();
+            $tahunAjaranId = $tahunAjaran ? $tahunAjaran->id : null;
         }
-        $ref = config('p5_sub_elemen_deskripsi');
-        return is_array($ref) ? $ref : [];
+
+        $query = Siswa::with(['user', 'kelas.jurusan'])
+            ->where('status', 'aktif');
+
+        if ($kelasId) {
+            $query->where('kelas_id', $kelasId);
+        }
+
+        if ($request->has('search') && trim((string) $request->search) !== '') {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_lengkap', 'like', "%{$search}%")
+                    ->orWhere('nis', 'like', "%{$search}%")
+                    ->orWhere('nisn', 'like', "%{$search}%");
+            });
+        }
+
+        $siswa = $query->orderBy('nama_lengkap')->paginate($request->get('per_page', 15));
+
+        return response()->json($siswa);
     }
 
     /**
-     * Cari deskripsi dengan key yang mirip (normalisasi spasi, case-insensitive).
+     * Download transkrip hasil belajar (PDF) untuk satu siswa.
+     * Query: tahun_ajaran_id, semester (1|2), jenis (sts|sas).
      *
-     * @param  array<string, string>  $referensi
-     * @param  string  $sub
-     * @return string|null
+     * @param  Request  $request
+     * @param  Siswa  $siswa
+     * @return \Illuminate\Http\Response
      */
-    protected function findDeskripsiByKey(array $referensi, string $sub): ?string
+    public function transkripDownload(Request $request, Siswa $siswa)
     {
-        $normalize = function (string $s): string {
-            $s = trim(preg_replace('/\s+/', ' ', $s));
-            return mb_strtolower($s);
-        };
-        $keyNorm = $normalize($sub);
-        foreach ($referensi as $k => $v) {
-            if ($normalize($k) === $keyNorm) {
-                return $v;
+        $tahunAjaranId = $request->filled('tahun_ajaran_id') ? (int) $request->tahun_ajaran_id : null;
+        if (! $tahunAjaranId) {
+            $ta = TahunAjaran::where('is_active', true)->first();
+            if (! $ta) {
+                return response()->json(['message' => 'Tahun ajaran aktif tidak ditemukan'], 404);
             }
+            $tahunAjaranId = $ta->id;
         }
-        return null;
+
+        $semester = $request->filled('semester') ? (string) $request->semester : '1';
+        if (! in_array($semester, ['1', '2'], true)) {
+            $semester = '1';
+        }
+
+        $jenis = $request->filled('jenis') ? strtolower($request->jenis) : 'sas';
+        if (! in_array($jenis, ['sts', 'sas'], true)) {
+            $jenis = 'sas';
+        }
+
+        $waliKelasController = app(\App\Http\Controllers\Api\WaliKelas\CetakRaporBelajarController::class);
+        $data = $waliKelasController->buildRaporDataPublic($siswa, $tahunAjaranId, $semester, $jenis);
+
+        $tahunAjaran = TahunAjaran::find($tahunAjaranId);
+        $tahunInt = $tahunAjaran ? (int) $tahunAjaran->tahun : 0;
+        $data['semester_romawi'] = $semester === '2' ? 'II' : 'I';
+        $data['tahun_pelajaran_label'] = $tahunInt ? $tahunInt . '/' . ($tahunInt + 1) : '-';
+        $data['nama_sekolah'] = config('app.school_name', 'SMKS Progresia Cianjur');
+        $data['alamat_sekolah'] = config('app.school_address', '');
+        
+        // Titimangsa dari request atau sekarang
+        $titimangsa = $request->filled('titimangsa') ? $request->titimangsa : now()->format('Y-m-d');
+        $data['tanggal_rapor'] = \Carbon\Carbon::parse($titimangsa)->locale('id');
+
+        try {
+            $pdf = Pdf::loadView('rapor.transkrip', $data);
+            $pdf->setPaper('a4', 'portrait');
+            $filename = 'transkrip-' . ($siswa->nis ?? $siswa->id) . '-s' . $semester . '.pdf';
+            return $pdf->download($filename);
+        } catch (\Throwable $e) {
+            \Log::error('Admin cetak transkrip PDF error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['message' => 'Gagal menghasilkan PDF: ' . $e->getMessage()], 500);
+        }
     }
 }
 

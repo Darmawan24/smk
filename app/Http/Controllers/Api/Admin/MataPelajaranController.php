@@ -71,6 +71,7 @@ class MataPelajaranController extends Controller
         $validated = $request->validate([
             'kode_mapel' => ['required', 'string', 'max:20', 'unique:mata_pelajaran,kode_mapel'],
             'nama_mapel' => ['required', 'string', 'max:255'],
+            'kelompok' => ['required', 'in:umum,kejuruan,muatan_lokal'],
             'kkm' => ['required', 'integer', 'min:0', 'max:100'],
             'guru_id' => ['required', 'integer', 'exists:guru,id'],
             'kelas_ids' => ['required', 'array', 'min:1'],
@@ -83,6 +84,7 @@ class MataPelajaranController extends Controller
             $mataPelajaran = MataPelajaran::create([
                 'kode_mapel' => $validated['kode_mapel'],
                 'nama_mapel' => $validated['nama_mapel'],
+                'kelompok' => $validated['kelompok'],
                 'kkm' => (int) $validated['kkm'],
                 'guru_id' => (int) $validated['guru_id'],
                 'is_active' => $validated['is_active'] ?? true,
@@ -144,6 +146,7 @@ class MataPelajaranController extends Controller
         $request->validate([
             'kode_mapel' => ['sometimes', 'string', 'max:20', Rule::unique('mata_pelajaran', 'kode_mapel')->ignore($mataPelajaran->id)],
             'nama_mapel' => ['sometimes', 'string', 'max:255'],
+            'kelompok' => ['sometimes', 'in:umum,kejuruan,muatan_lokal'],
             'kkm' => ['sometimes', 'integer', 'min:0', 'max:100'],
             'guru_id' => ['sometimes', 'exists:guru,id'],
             'kelas_ids' => ['sometimes', 'array', 'min:1'],
@@ -156,6 +159,7 @@ class MataPelajaranController extends Controller
             $mataPelajaran->update($request->only([
                 'kode_mapel',
                 'nama_mapel',
+                'kelompok',
                 'kkm',
                 'guru_id',
                 'is_active',

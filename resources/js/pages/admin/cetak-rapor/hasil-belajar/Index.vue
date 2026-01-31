@@ -13,7 +13,7 @@
 
       <!-- Filters -->
       <div class="bg-white shadow rounded-lg p-6 mb-6">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <FormField
             v-model="filters.kelas_id"
             type="select"
@@ -22,7 +22,7 @@
             :options="kelasFilterOptions"
             option-value="id"
             option-label="full_name"
-            @update:model-value="fetchRapor"
+            @update:model-value="onFiltersChange"
           />
           <FormField
             v-model="filters.semester"
@@ -30,15 +30,22 @@
             label="Semester"
             placeholder="Pilih Semester"
             :options="semesterOptions"
-            @update:model-value="fetchRapor"
+            @update:model-value="onFiltersChange"
           />
           <FormField
-            v-model="filters.status"
+            v-model="filters.jenis"
             type="select"
-            label="Status"
-            placeholder="Pilih Status"
-            :options="statusOptions"
-            @update:model-value="fetchRapor"
+            label="Periode"
+            placeholder="Pilih Periode"
+            :options="jenisOptions"
+            @update:model-value="onFiltersChange"
+          />
+          <FormField
+            v-model="filters.titimangsa"
+            type="date"
+            label="Titimangsa Rapor"
+            :required="true"
+            @update:model-value="onFiltersChange"
           />
         </div>
         <div class="mt-4">
@@ -47,9 +54,12 @@
             type="text"
             label="Cari Siswa"
             placeholder="Cari berdasarkan nama atau NIS"
-            @update:model-value="handleSearch"
+            @update:model-value="onFiltersChange"
           />
         </div>
+        <p class="mt-2 text-xs text-gray-500">
+          Pilih periode STS (Tengah Semester) atau SAS (Akhir Semester). Cetak hanya tersedia jika nilai periode tersebut sudah diisi, semua nilai ≥ KKM, dan rapor sudah disetujui KS.
+        </p>
       </div>
 
       <!-- Loading State -->
@@ -58,114 +68,105 @@
         <p class="mt-2 text-sm text-gray-500">Memuat data rapor...</p>
       </div>
 
-      <!-- Rapor List -->
-      <div v-else class="bg-white shadow rounded-lg overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Siswa
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Kelas
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Semester
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tanggal
-              </th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Aksi
-              </th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="rapor in (raporList?.data || [])" :key="rapor.id">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">{{ rapor.siswa?.nama_lengkap }}</div>
-                <div class="text-sm text-gray-500">NIS: {{ rapor.siswa?.nis }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">{{ rapor.kelas?.nama_kelas }}</div>
-                <div class="text-sm text-gray-500">{{ rapor.kelas?.jurusan?.nama_jurusan }}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">
-                  {{ getSemesterLabel(rapor) }}
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span :class="getStatusBadge(rapor.status)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
-                  {{ getStatusLabel(rapor.status) }}
-                </span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{ formatDate(rapor.tanggal_rapor) }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <div class="flex items-center justify-end space-x-2">
-                  <button
-                    @click="previewRapor(rapor)"
-                    class="text-blue-600 hover:text-blue-900"
-                    title="Preview"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
-                  </button>
-                  <button
-                    @click="downloadRapor(rapor)"
-                    class="text-green-600 hover:text-green-900"
-                    title="Download PDF"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Pagination -->
-        <div v-if="raporList && raporList.last_page > 1" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-          <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-700">
-              Menampilkan {{ raporList.from }} sampai {{ raporList.to }} dari {{ raporList.total }} hasil
-            </div>
-            <div class="flex space-x-2">
-              <button
-                @click="fetchRapor(raporList.current_page - 1)"
-                :disabled="!raporList.prev_page_url"
-                class="btn btn-sm btn-secondary"
-              >
-                Sebelumnya
-              </button>
-              <button
-                @click="fetchRapor(raporList.current_page + 1)"
-                :disabled="!raporList.next_page_url"
-                class="btn btn-sm btn-secondary"
-              >
-                Selanjutnya
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div v-if="!loading && (!raporList || !raporList.data || (raporList.data && raporList.data.length === 0))" class="bg-white shadow rounded-lg p-8 text-center">
+      <!-- Empty Filters State -->
+      <div v-else-if="!filtersReady" class="bg-white shadow rounded-lg p-8 text-center">
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
         </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">Belum ada rapor</h3>
-        <p class="mt-1 text-sm text-gray-500">Tidak ada rapor yang dapat dicetak untuk filter yang dipilih.</p>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Pilih Semua Filter</h3>
+        <p class="mt-1 text-sm text-gray-500">
+          Pilih Kelas, Semester, Periode, dan Titimangsa untuk menampilkan daftar rapor.
+        </p>
+      </div>
+
+      <!-- Rapor List -->
+      <div v-else-if="filtersReady && (list?.length ?? 0) > 0" class="bg-white shadow rounded-lg overflow-hidden">
+        <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  No
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nama Siswa
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  NISN
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  NIS
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cetak Rapor
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cetak Transkrip
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="(row, idx) in list" :key="row.id">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ idx + 1 }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {{ row.nama_lengkap }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ row.nisn ?? '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ row.nis ?? '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <button
+                    type="button"
+                    :disabled="!row.can_cetak_rapor"
+                    :class="[
+                      'inline-flex items-center px-3 py-1.5 border text-sm font-medium rounded-md',
+                      row.can_cetak_rapor
+                        ? 'bg-blue-600 text-white border-transparent hover:bg-blue-700'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-200'
+                    ]"
+                    @click="row.can_cetak_rapor && downloadRapor(row)"
+                  >
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Cetak
+                  </button>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <button
+                    type="button"
+                    :disabled="downloadingTranskripId === row.id"
+                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    @click="cetakTranskrip(row)"
+                  >
+                    <svg v-if="downloadingTranskripId === row.id" class="animate-spin -ml-0.5 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <svg v-else class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Cetak
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Empty State (when filters filled but no data) -->
+      <div v-else-if="filtersReady" class="bg-white shadow rounded-lg p-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Tidak ada siswa</h3>
+        <p class="mt-1 text-sm text-gray-500">Tidak ada siswa dalam kelas ini.</p>
       </div>
 
       <!-- Preview Modal -->
@@ -260,36 +261,39 @@ import FormField from '../../../../components/ui/FormField.vue'
 
 const toast = useToast()
 
-const raporList = ref([])
+const list = ref([])
 const loading = ref(false)
 const showPreviewModal = ref(false)
 const selectedRapor = ref(null)
+const downloadingTranskripId = ref(null)
 
 const filters = ref({
   kelas_id: '',
   semester: '',
-  status: '',
-  search: ''
+  jenis: '',
+  search: '',
+  titimangsa: new Date().toISOString().split('T')[0]
 })
 
 const kelasOptions = ref([])
 
 const semesterOptions = [
-  { value: '', label: 'Semua Semester' },
   { value: '1', label: 'Semester 1' },
   { value: '2', label: 'Semester 2' }
 ]
 
-const statusOptions = [
-  { value: '', label: 'Semua Status' },
-  { value: 'disetujui', label: 'Disetujui' },
-  { value: 'tidak disetujui', label: 'Tidak Disetujui' }
+const jenisOptions = [
+  { value: 'sts', label: 'STS (Tengah Semester)' },
+  { value: 'sas', label: 'SAS (Akhir Semester)' }
 ]
 
 const kelasFilterOptions = computed(() => [
-  { id: '', full_name: 'Semua Kelas' },
   ...kelasOptions.value
 ])
+
+const filtersReady = computed(() => {
+  return !!filters.value.kelas_id && !!filters.value.semester && !!filters.value.jenis && !!filters.value.titimangsa
+})
 
 const getStatusBadge = (status) => {
   if (status === 'approved') {
@@ -312,33 +316,33 @@ const getSemesterLabel = (rapor) => {
   return '-'
 }
 
+const getJenisLabel = (jenis) => {
+  if (jenis === 'sts') return 'STS'
+  if (jenis === 'sas') return 'SAS'
+  return '-'
+}
+
 const formatDate = (dateString) => {
   if (!dateString) return '-'
   return new Date(dateString).toLocaleDateString('id-ID')
 }
 
-const fetchRapor = async (page = 1) => {
+const fetchRapor = async () => {
+  if (!filtersReady.value) return
   loading.value = true
   try {
     const params = new URLSearchParams()
-    if (filters.value.kelas_id) params.append('kelas_id', filters.value.kelas_id)
-    if (filters.value.semester) params.append('semester', filters.value.semester)
-    if (filters.value.status) params.append('status', filters.value.status)
+    params.append('kelas_id', filters.value.kelas_id)
+    params.append('semester', filters.value.semester)
+    params.append('jenis', filters.value.jenis)
     if (filters.value.search) params.append('search', filters.value.search)
-    params.append('page', page)
 
     const response = await axios.get(`/admin/cetak-rapor/hasil-belajar?${params.toString()}`)
-    // Handle paginated response
-    if (response.data.data) {
-      raporList.value = response.data
-    } else if (Array.isArray(response.data)) {
-      raporList.value = { data: response.data }
-    } else {
-      raporList.value = response.data || { data: [] }
-    }
+    list.value = response.data?.data ?? []
   } catch (error) {
     console.error('Error fetching rapor:', error)
-    toast.error('Gagal mengambil data rapor')
+    toast.error(error.response?.data?.message || 'Gagal mengambil data rapor')
+    list.value = []
   } finally {
     loading.value = false
   }
@@ -354,8 +358,10 @@ const fetchKelas = async () => {
 }
 
 
-const handleSearch = () => {
-  fetchRapor(1)
+function onFiltersChange() {
+  if (filtersReady.value) {
+    fetchRapor(1)
+  }
 }
 
 const previewRapor = async (rapor) => {
@@ -369,36 +375,95 @@ const previewRapor = async (rapor) => {
   }
 }
 
-const downloadRapor = async (rapor) => {
+const cetakTranskrip = async (row) => {
+  const siswaId = row?.id
+  if (!siswaId) {
+    toast.error('Data siswa tidak ditemukan')
+    return
+  }
+  if (!filters.value.titimangsa) {
+    toast.error('Harap pilih titimangsa rapor terlebih dahulu')
+    return
+  }
+  downloadingTranskripId.value = siswaId
   try {
-    const response = await axios.get(`/admin/cetak-rapor/hasil-belajar/${rapor.id}/download`, {
-      responseType: 'blob'
-    })
+    const params = new URLSearchParams()
+    const tahunAjaranId = row.tahun_ajaran?.id || row.rapor?.tahun_ajaran_id
+    if (tahunAjaranId) params.append('tahun_ajaran_id', tahunAjaranId)
+    params.append('semester', row.rapor?.semester || filters.value.semester || '1')
+    params.append('jenis', filters.value.jenis || row.rapor?.jenis || 'sas')
+    params.append('titimangsa', filters.value.titimangsa)
+    const res = await axios.get(
+      `/admin/cetak-rapor/transkrip/${siswaId}/download?${params}`,
+      { responseType: 'blob' }
+    )
+    const blob = new Blob([res.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    toast.success('Transkrip dibuka di tab baru')
+  } catch (e) {
+    const msg = e.response?.data?.message ?? 'Gagal mengunduh transkrip'
+    if (e.response?.data instanceof Blob) {
+      try {
+        const text = await e.response.data.text()
+        const j = JSON.parse(text)
+        toast.error(j?.message ?? msg)
+      } catch (_) {
+        toast.error(msg)
+      }
+    } else {
+      toast.error(typeof msg === 'string' ? msg : 'Gagal mengunduh transkrip')
+    }
+  } finally {
+    downloadingTranskripId.value = null
+  }
+}
+
+const downloadRapor = async (row) => {
+  const rapor = row?.rapor
+  if (!rapor?.id) {
+    toast.error('Rapor tidak tersedia untuk dicetak')
+    return
+  }
+  try {
+    const params = new URLSearchParams()
+    const semester = rapor.semester || filters.value.semester || '1'
+    const jenis = filters.value.jenis || rapor.jenis || 'sas'
+    params.append('semester', semester)
+    params.append('jenis', jenis)
+    if (filters.value.titimangsa) params.append('titimangsa', filters.value.titimangsa)
+    const url = `/admin/cetak-rapor/hasil-belajar/${rapor.id}/download?${params.toString()}`
+    const response = await axios.get(url, { responseType: 'blob' })
     
-    // Create blob link to download
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
     const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', `rapor-${rapor.siswa?.nis}-${rapor.tahun_ajaran?.tahun}.pdf`)
+    link.href = blobUrl
+    link.setAttribute('download', `rapor-${row.nis}-${row.tahun_ajaran?.tahun}-s${semester}.pdf`)
     document.body.appendChild(link)
     link.click()
     link.remove()
+    window.URL.revokeObjectURL(blobUrl)
     
     toast.success('Rapor berhasil diunduh')
   } catch (error) {
     console.error('Error downloading rapor:', error)
-    // If PDF generation is not implemented, show preview instead
-    if (error.response?.status === 404 || error.response?.data?.message?.includes('PDF generation')) {
-      toast.info('Fitur download PDF akan segera tersedia. Silakan gunakan preview.')
-      previewRapor(rapor)
-    } else {
-      toast.error('Gagal mengunduh rapor')
+    let msg = 'Gagal mengunduh rapor'
+    if (error.response?.status === 403) {
+      msg = 'Rapor belum disetujui kepala sekolah'
+    } else if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text()
+        const json = JSON.parse(text)
+        if (json?.message) msg = json.message
+      } catch (_) {}
+    } else if (error.response?.data?.message) {
+      msg = error.response.data.message
     }
+    toast.error(msg)
   }
 }
 
 onMounted(() => {
-  fetchRapor()
   fetchKelas()
 })
 </script>

@@ -8,6 +8,7 @@ use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
  * CatatanAkademikController for Wali Kelas
@@ -16,6 +17,134 @@ use Illuminate\Support\Facades\Auth;
  */
 class CatatanAkademikController extends Controller
 {
+    /**
+     * List siswa dengan catatan akademik untuk filter kelas (halaman Catatan Wali Kelas).
+     *
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function listByKelas(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->isWaliKelas()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $kelas = $user->kelasAsWali();
+        if ($kelas->isEmpty()) {
+            return response()->json([
+                'kelas' => [],
+                'tahun_ajaran' => null,
+                'siswa' => [],
+            ], 200);
+        }
+
+        $tahunAjaran = TahunAjaran::where('is_active', true)->first();
+        if (!$tahunAjaran) {
+            return response()->json([
+                'kelas' => $kelas->map(fn ($k) => ['id' => $k->id, 'nama_kelas' => $k->nama_kelas]),
+                'tahun_ajaran' => null,
+                'siswa' => [],
+            ], 200);
+        }
+
+        $kelasId = $request->get('kelas_id');
+        $filteredKelas = $kelasId ? $kelas->where('id', $kelasId) : $kelas;
+
+        $kelasData = $kelas->map(fn ($k) => [
+            'id' => $k->id,
+            'nama_kelas' => $k->nama_kelas,
+        ])->values();
+
+        if ($filteredKelas->isEmpty() || !$kelasId) {
+            return response()->json([
+                'kelas' => $kelasData,
+                'tahun_ajaran' => $tahunAjaran,
+                'siswa' => [],
+            ], 200);
+        }
+
+        $siswaIds = $filteredKelas->first()->siswa()->where('status', 'aktif')->pluck('id');
+        $catatanMap = CatatanAkademik::whereIn('siswa_id', $siswaIds)
+            ->where('tahun_ajaran_id', $tahunAjaran->id)
+            ->where('wali_kelas_id', $user->id)
+            ->get()
+            ->keyBy('siswa_id');
+
+        $siswa = Siswa::whereIn('id', $siswaIds)
+            ->with(['kelas.jurusan'])
+            ->orderBy('nama_lengkap')
+            ->get()
+            ->map(function ($s) use ($catatanMap) {
+                $ca = $catatanMap->get($s->id);
+                return [
+                    'id' => $s->id,
+                    'nis' => $s->nis,
+                    'nisn' => $s->nisn,
+                    'nama_lengkap' => $s->nama_lengkap,
+                    'kelas' => $s->kelas ? ['id' => $s->kelas->id, 'nama_kelas' => $s->kelas->nama_kelas] : null,
+                    'catatan_akademik' => $ca ? ['id' => $ca->id, 'catatan' => $ca->catatan] : null,
+                ];
+            });
+
+        return response()->json([
+            'kelas' => $kelasData,
+            'tahun_ajaran' => $tahunAjaran,
+            'siswa' => $siswa,
+        ], 200);
+    }
+
+    /**
+     * Batch update catatan akademik (create or update per siswa).
+     *
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function batchUpdate(Request $request)
+    {
+        $request->validate([
+            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
+            'catatan' => 'required|array',
+            'catatan.*.siswa_id' => 'required|exists:siswa,id',
+            'catatan.*.catatan' => 'nullable|string',
+        ]);
+
+        $user = Auth::user();
+        $kelasIds = $user->kelasAsWali()->pluck('id');
+
+        DB::beginTransaction();
+        try {
+            foreach ($request->catatan as $item) {
+                $siswa = Siswa::find($item['siswa_id']);
+                if (!$siswa || !$kelasIds->contains($siswa->kelas_id)) {
+                    continue;
+                }
+
+                $catatanText = trim($item['catatan'] ?? '');
+                $existing = CatatanAkademik::where('siswa_id', $siswa->id)
+                    ->where('tahun_ajaran_id', $request->tahun_ajaran_id)
+                    ->first();
+
+                if ($existing) {
+                    $existing->update(['catatan' => $catatanText]);
+                } elseif ($catatanText !== '') {
+                    CatatanAkademik::create([
+                        'siswa_id' => $siswa->id,
+                        'tahun_ajaran_id' => $request->tahun_ajaran_id,
+                        'wali_kelas_id' => $user->id,
+                        'catatan' => $catatanText,
+                    ]);
+                }
+            }
+            DB::commit();
+            return response()->json(['message' => 'Catatan wali kelas berhasil disimpan']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Gagal menyimpan: ' . $e->getMessage()], 500);
+        }
+    }
+
     /**
      * Display a listing of catatan akademik.
      *

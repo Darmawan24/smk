@@ -26,84 +26,9 @@
         </div>
       </div>
 
-      <!-- Summary Cards -->
-      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-          <div class="p-5">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <svg class="h-6 w-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <div class="ml-5 w-0 flex-1">
-                <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">Menunggu Persetujuan</dt>
-                  <dd class="text-lg font-medium text-gray-900">{{ summary.pending || 0 }}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-          <div class="p-5">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <svg class="h-6 w-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <div class="ml-5 w-0 flex-1">
-                <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">Disetujui</dt>
-                  <dd class="text-lg font-medium text-gray-900">{{ summary.approved || 0 }}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-          <div class="p-5">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <div class="ml-5 w-0 flex-1">
-                <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">Ditolak</dt>
-                  <dd class="text-lg font-medium text-gray-900">{{ summary.rejected || 0 }}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-          <div class="p-5">
-            <div class="flex items-center">
-              <div class="flex-shrink-0">
-                <svg class="h-6 w-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-              </div>
-              <div class="ml-5 w-0 flex-1">
-                <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">Total Rapor</dt>
-                  <dd class="text-lg font-medium text-gray-900">{{ summary.total || 0 }}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Filters -->
       <div class="bg-white shadow rounded-lg p-6 mb-6">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <FormField
             v-model="filters.tahun_ajaran_id"
             type="select"
@@ -125,18 +50,41 @@
             @update:model-value="fetchRapor"
           />
           <FormField
+            v-model="filters.jenis"
+            type="select"
+            label="Periode"
+            placeholder="Pilih Periode"
+            :options="jenisOptions"
+            option-value="value"
+            option-label="label"
+            @update:model-value="fetchRapor"
+          />
+          <FormField
             v-model="filters.status"
             type="select"
             label="Status"
-            placeholder="Semua Status"
+            placeholder="Pilih Status"
             :options="statusOptions"
+            option-value="value"
+            option-label="label"
             @update:model-value="fetchRapor"
           />
         </div>
       </div>
 
+      <!-- Pilih filter dulu -->
+      <div v-if="!filtersComplete" class="bg-white shadow rounded-lg p-8 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Pilih filter terlebih dahulu</h3>
+        <p class="mt-1 text-sm text-gray-500">
+          Pilih Tahun Ajaran, Kelas, Periode, dan Status untuk menampilkan daftar rapor siswa.
+        </p>
+      </div>
+
       <!-- Loading State -->
-      <div v-if="loading" class="bg-white shadow rounded-lg p-8 text-center">
+      <div v-else-if="loading" class="bg-white shadow rounded-lg p-8 text-center">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
         <p class="mt-2 text-sm text-gray-500">Memuat data rapor...</p>
       </div>
@@ -185,71 +133,83 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(rapor, index) in raporData" :key="rapor.id" class="hover:bg-gray-50">
+              <tr v-for="(row, index) in displayList" :key="row.rapor?.id ?? row.siswa?.id ?? index" class="hover:bg-gray-50">
                 <td>
                   <input
+                    v-if="row.rapor && row.periode_sudah_diisi"
                     type="checkbox"
-                    :value="rapor.id"
+                    :value="row.rapor.id"
                     v-model="selectedRapor"
-                    :disabled="rapor.status === 'approved' || rapor.status === 'published'"
+                    :disabled="row.rapor.status === 'approved' || row.rapor.status === 'published'"
                     class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
                   />
+                  <span v-else class="inline-block w-4"></span>
                 </td>
                 <td class="text-center">{{ index + 1 }}</td>
                 <td>
                   <div class="flex items-center">
                     <div class="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                      {{ rapor.siswa?.nama_lengkap?.charAt(0) }}
+                      {{ row.siswa?.nama_lengkap?.charAt(0) }}
                     </div>
                     <div class="ml-3">
-                      <div class="text-sm font-medium text-gray-900">{{ rapor.siswa?.nama_lengkap }}</div>
+                      <div class="text-sm font-medium text-gray-900">{{ row.siswa?.nama_lengkap }}</div>
                     </div>
                   </div>
                 </td>
-                <td class="text-sm text-gray-900">{{ rapor.siswa?.nisn || '-' }}</td>
-                <td class="text-sm text-gray-900">{{ rapor.siswa?.nis || '-' }}</td>
+                <td class="text-sm text-gray-900">{{ row.siswa?.nisn || '-' }}</td>
+                <td class="text-sm text-gray-900">{{ row.siswa?.nis || '-' }}</td>
                 <td>
                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {{ rapor.kelas?.nama_kelas }}
+                    {{ row.kelas?.nama_kelas }}
                   </span>
                 </td>
                 <td>
-                  <div class="text-sm text-gray-900">{{ rapor.tahun_ajaran?.nama }} - Semester {{ rapor.tahun_ajaran?.semester }}</div>
+                  <div class="text-sm text-gray-900">{{ row.tahun_ajaran?.tahun || row.tahun_ajaran?.nama }} - Semester {{ row.tahun_ajaran?.semester }}</div>
                 </td>
                 <td>
-                  <span :class="getStatusBadge(rapor.status)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
-                    {{ getStatusText(rapor.status) }}
+                  <span v-if="row.rapor && row.periode_sudah_diisi" :class="getStatusBadge(row.rapor.status)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
+                    {{ getStatusText(row.rapor.status) }}
+                  </span>
+                  <span v-else-if="row.rapor && !row.periode_sudah_diisi" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-amber-700 bg-amber-100">
+                    Belum lengkap (nilai periode belum diisi)
+                  </span>
+                  <span v-else-if="!row.rapor && row.periode_sudah_diisi" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-yellow-700 bg-yellow-100">
+                    Belum
+                  </span>
+                  <span v-else class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-gray-500 bg-gray-100">
+                    Belum ada rapor
                   </span>
                 </td>
                 <td>
                   <div class="flex items-center space-x-2">
-                    <button @click="viewRapor(rapor)" class="text-blue-600 hover:text-blue-900" title="Lihat Detail">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                      </svg>
+                    <button
+                      v-if="row.periode_sudah_diisi"
+                      @click="openPreviewRaporBelajar(row)"
+                      class="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                      title="Lihat Rapor (sama dengan cetak rapor Wali Kelas)"
+                    >
+                      Lihat Rapor
                     </button>
-                    <div v-if="rapor.status === 'pending' || rapor.status === 'draft'" class="relative">
-                      <button 
-                        @click="showActionMenu = showActionMenu === rapor.id ? null : rapor.id"
-                        class="text-gray-600 hover:text-gray-900"
-                        title="Aksi"
+                    <template v-if="row.periode_sudah_diisi">
+                      <!-- Setujui: tampil jika status belum disetujui (draft/pending/tidak ada rapor) -->
+                      <button
+                        v-if="!row.rapor || row.rapor.status === 'pending' || row.rapor.status === 'draft'"
+                        @click="!row.rapor ? approveRaporBySiswa(row) : approveRapor(row.rapor)"
+                        class="text-green-600 hover:text-green-900 text-sm font-medium"
+                        title="Setujui"
                       >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
-                        </svg>
+                        Setujui
                       </button>
-                      <div v-if="showActionMenu === rapor.id" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                        <div class="py-1">
-                          <button @click="approveRapor(rapor)" class="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50">
-                            Setujui
-                          </button>
-                          <button @click="rejectRapor(rapor)" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">
-                            Tolak
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                      <!-- Belum disetujui: tampil jika status sudah disetujui -->
+                      <button
+                        v-else-if="row.rapor && (row.rapor.status === 'approved' || row.rapor.status === 'published')"
+                        @click="unapproveRapor(row.rapor)"
+                        class="text-amber-600 hover:text-amber-900 text-sm font-medium"
+                        title="Belum disetujui"
+                      >
+                        Belum disetujui
+                      </button>
+                    </template>
                   </div>
                 </td>
               </tr>
@@ -258,7 +218,7 @@
         </div>
 
         <!-- Empty State -->
-        <div v-if="raporData.length === 0" class="p-8 text-center">
+        <div v-if="displayList.length === 0" class="p-8 text-center">
           <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
@@ -419,13 +379,11 @@ const toast = useToast()
 const raporData = ref([])
 const tahunAjaranOptions = ref([])
 const kelasOptions = ref([])
-const summary = ref({})
 const selectedRapor = ref([])
 const selectedRaporDetail = ref(null)
 const selectedRaporForAction = ref(null)
+const pendingApproveBySiswa = ref(null)
 const rejectionReason = ref('')
-const showActionMenu = ref(null)
-
 // State
 const loading = ref(true)
 const processing = ref(false)
@@ -438,23 +396,51 @@ const showRejectionModal = ref(false)
 const filters = reactive({
   tahun_ajaran_id: '',
   kelas_id: '',
+  jenis: '',
   status: ''
 })
 
-// Options
+// Options: hanya Tengah Semester (STS) atau Akhir Semester (SAS)
+const jenisOptions = [
+  { value: 'sts', label: 'Tengah Semester (STS)' },
+  { value: 'sas', label: 'Akhir Semester (SAS)' }
+]
 const statusOptions = [
-  { value: '', label: 'Semua Status' },
-  { value: 'belum', label: 'Belum' },
-  { value: 'setujui', label: 'Setujui' }
+  { value: 'setujui', label: 'Setujui' },
+  { value: 'belum_disetujui', label: 'Belum Disetujui' }
 ]
 
-// Computed
+// Computed: filter wajib diisi sebelum tampil list (termasuk status)
+const filtersComplete = computed(() => {
+  return !!(filters.tahun_ajaran_id && filters.kelas_id && filters.jenis && filters.status)
+})
+
+// Normalisasi: backend bisa mengembalikan [{ siswa, rapor, tahun_ajaran, kelas, periode_sudah_diisi }] atau [rapor, ...]
+const displayList = computed(() => {
+  const d = raporData.value
+  if (!d.length) return []
+  if (d[0].siswa != null && Object.prototype.hasOwnProperty.call(d[0], 'rapor')) return d
+  return d.map(r => ({
+    siswa: r.siswa,
+    rapor: r,
+    tahun_ajaran: r.tahunAjaran || r.tahun_ajaran,
+    kelas: r.kelas,
+    periode_sudah_diisi: r.periode_sudah_diisi ?? false
+  }))
+})
+
 const allSelected = computed(() => {
-  const pendingRapor = raporData.value.filter(r => r.status === 'pending' || r.status === 'draft')
+  const pendingRapor = displayList.value.filter(row => {
+    const rapor = row.rapor
+    return rapor && row.periode_sudah_diisi && (rapor.status === 'pending' || rapor.status === 'draft')
+  })
   return pendingRapor.length > 0 && selectedRapor.value.length === pendingRapor.length
 })
 
 const approvalMessage = computed(() => {
+  if (pendingApproveBySiswa.value) {
+    return `Apakah Anda yakin ingin menyetujui rapor ${pendingApproveBySiswa.value.siswa?.nama_lengkap}?`
+  }
   if (selectedRapor.value.length > 1) {
     return `Apakah Anda yakin ingin menyetujui ${selectedRapor.value.length} rapor yang dipilih?`
   } else if (selectedRaporForAction.value) {
@@ -492,31 +478,85 @@ const fetchKelas = async () => {
 }
 
 const fetchRapor = async () => {
+  if (!filters.tahun_ajaran_id || !filters.kelas_id || !filters.jenis || !filters.status) {
+    raporData.value = []
+    loading.value = false
+    return
+  }
   try {
     loading.value = true
     const params = new URLSearchParams()
-    if (filters.tahun_ajaran_id) params.append('tahun_ajaran_id', filters.tahun_ajaran_id)
-    if (filters.kelas_id) params.append('kelas_id', filters.kelas_id)
-    if (filters.status) params.append('status', filters.status)
+    params.append('tahun_ajaran_id', filters.tahun_ajaran_id)
+    params.append('kelas_id', filters.kelas_id)
+    params.append('jenis', filters.jenis)
+    params.append('status', filters.status)
     
     const response = await axios.get(`/kepala-sekolah/rapor-approval?${params}`)
     raporData.value = response.data.data || []
-    summary.value = response.data.summary || {}
     selectedRapor.value = []
   } catch (error) {
     toast.error('Gagal mengambil data rapor')
     console.error(error)
+    raporData.value = []
   } finally {
     loading.value = false
   }
 }
 
 const toggleSelectAll = () => {
-  const pendingRapor = raporData.value.filter(r => r.status === 'pending' || r.status === 'draft')
+  const pendingRows = displayList.value.filter(row => row.rapor && row.periode_sudah_diisi && (row.rapor.status === 'pending' || row.rapor.status === 'draft'))
   if (allSelected.value) {
     selectedRapor.value = []
   } else {
-    selectedRapor.value = pendingRapor.map(r => r.id)
+    selectedRapor.value = pendingRows.map(row => row.rapor.id)
+  }
+}
+
+/** Buka PDF rapor belajar di tab baru (sama konten dengan cetak rapor Wali Kelas). */
+const openPreviewRaporBelajar = async (row) => {
+  if (!row.siswa?.id || !row.tahun_ajaran?.id) {
+    toast.error('Data siswa atau tahun ajaran tidak lengkap')
+    return
+  }
+  // semester dari tahun_ajaran (1 atau 2), jenis (sts/sas) = periode tengah/akhir semester
+  const semester = String(row.tahun_ajaran.semester ?? '1')
+  const jenis = filters.jenis || 'sts'
+  try {
+    const params = new URLSearchParams({
+      tahun_ajaran_id: row.tahun_ajaran.id,
+      semester,
+      jenis
+    })
+    const res = await axios.get(
+      `/kepala-sekolah/rapor-approval/preview-rapor-belajar/${row.siswa.id}?${params}`,
+      { responseType: 'blob' }
+    )
+    if (res.status !== 200 || (res.data?.type && !res.data.type.includes('pdf'))) {
+      const text = await res.data.text()
+      try {
+        const j = JSON.parse(text)
+        toast.error(j?.message || 'Gagal menghasilkan PDF')
+      } catch (_) {
+        toast.error('Respons bukan PDF. Gagal menghasilkan rapor.')
+      }
+      return
+    }
+    const blob = new Blob([res.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener,noreferrer')
+    toast.success('Rapor dibuka di tab baru')
+  } catch (error) {
+    const msg = error.response?.data?.message || error.response?.status === 403
+      ? 'Tidak dapat menampilkan rapor'
+      : 'Gagal membuka rapor'
+    toast.error(typeof msg === 'string' ? msg : 'Gagal membuka rapor')
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text()
+        const j = JSON.parse(text)
+        if (j?.message) toast.error(j.message)
+      } catch (_) {}
+    }
   }
 }
 
@@ -532,33 +572,44 @@ const viewRapor = async (rapor) => {
 }
 
 const approveRapor = (rapor) => {
+  pendingApproveBySiswa.value = null
   selectedRaporForAction.value = rapor
-  showActionMenu.value = null
+  showApprovalConfirm.value = true
+}
+
+const approveRaporBySiswa = (row) => {
+  selectedRaporForAction.value = null
+  pendingApproveBySiswa.value = row
   showApprovalConfirm.value = true
 }
 
 const confirmApproval = async () => {
   try {
     processing.value = true
-    
-    if (selectedRapor.value.length > 1) {
-      // Bulk approval
+
+    if (pendingApproveBySiswa.value) {
+      await axios.post('/kepala-sekolah/rapor-approval/approve-siswa', {
+        siswa_id: pendingApproveBySiswa.value.siswa?.id,
+        tahun_ajaran_id: pendingApproveBySiswa.value.tahun_ajaran?.id
+      })
+      toast.success('Rapor berhasil disetujui')
+      pendingApproveBySiswa.value = null
+    } else if (selectedRapor.value.length > 1) {
       await axios.post('/kepala-sekolah/rapor-approval/bulk-approve', {
         rapor_ids: selectedRapor.value
       })
       toast.success(`${selectedRapor.value.length} rapor berhasil disetujui`)
       selectedRapor.value = []
     } else {
-      // Single approval
       await axios.post(`/kepala-sekolah/rapor-approval/${selectedRaporForAction.value.id}/approve`)
       toast.success('Rapor berhasil disetujui')
     }
-    
+
     showApprovalConfirm.value = false
     showRaporDetail.value = false
     await fetchRapor()
   } catch (error) {
-    toast.error('Gagal menyetujui rapor')
+    toast.error(error.response?.data?.message || 'Gagal menyetujui rapor')
     console.error(error)
   } finally {
     processing.value = false
@@ -568,8 +619,22 @@ const confirmApproval = async () => {
 const rejectRapor = (rapor) => {
   selectedRaporForAction.value = rapor
   rejectionReason.value = ''
-  showActionMenu.value = null
   showRejectionModal.value = true
+}
+
+const unapproveRapor = async (rapor) => {
+  if (!confirm(`Apakah Anda yakin ingin mengubah rapor ${rapor.siswa?.nama_lengkap} menjadi belum disetujui?`)) return
+  try {
+    processing.value = true
+    await axios.post(`/kepala-sekolah/rapor-approval/${rapor.id}/unapprove`)
+    toast.success('Rapor berhasil diubah ke belum disetujui')
+    await fetchRapor()
+  } catch (error) {
+    toast.error(error.response?.data?.message || 'Gagal mengubah status rapor')
+    console.error(error)
+  } finally {
+    processing.value = false
+  }
 }
 
 const confirmRejection = async () => {
@@ -630,11 +695,11 @@ const getPredicateColor = (nilai) => {
   return colors[predicate] || 'bg-gray-100 text-gray-800'
 }
 
-// Lifecycle
+// Lifecycle: hanya load opsi filter; daftar rapor di-fetch setelah user pilih Tahun Ajaran, Kelas, dan Periode
 onMounted(async () => {
   await fetchTahunAjaran()
   await fetchKelas()
-  await fetchRapor()
+  loading.value = false
 })
 </script>
 

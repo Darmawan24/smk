@@ -40,12 +40,6 @@
 
         <template #row-actions="{ item }">
           <div class="flex items-center justify-center gap-2">
-            <button @click="showDetail(item)" class="text-gray-600 hover:text-gray-900" title="Detail">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-              </svg>
-            </button>
             <button @click="editP5(item)" class="text-blue-600 hover:text-blue-900" title="Edit">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -59,60 +53,6 @@
           </div>
         </template>
       </DataTable>
-
-      <!-- Detail Modal -->
-      <Modal v-model:show="showDetailModal" title="Detail P5" size="lg">
-        <div v-if="detailItem" class="space-y-4">
-          <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div class="sm:col-span-2">
-              <dt class="text-sm font-medium text-gray-500">Judul</dt>
-              <dd class="mt-1 text-sm text-gray-900">{{ detailItem.judul || detailItem.tema }}</dd>
-            </div>
-            <div class="sm:col-span-2">
-              <dt class="text-sm font-medium text-gray-500">Deskripsi</dt>
-              <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ detailItem.deskripsi }}</dd>
-            </div>
-            <div>
-              <dt class="text-sm font-medium text-gray-500">Dimensi</dt>
-              <dd class="mt-1 text-sm text-gray-900">{{ detailItem.dimensi || '-' }}</dd>
-            </div>
-            <div>
-              <dt class="text-sm font-medium text-gray-500">Tema</dt>
-              <dd class="mt-1 text-sm text-gray-900">{{ detailItem.tema || '-' }}</dd>
-            </div>
-            <div class="sm:col-span-2">
-              <dt class="text-sm font-medium text-gray-500 mb-2">Elemen & Sub Elemen</dt>
-              <dd class="mt-1">
-                <div v-if="detailItem.elemen_sub && detailItem.elemen_sub.length" class="space-y-2">
-                  <div v-for="(es, i) in detailItem.elemen_sub" :key="i" class="text-sm text-gray-900 border-l-2 border-blue-200 pl-3 py-1">
-                    <span class="font-medium">{{ es.elemen || '-' }}</span>
-                    <span class="text-gray-500"> → </span>
-                    <span>{{ es.sub_elemen || '-' }}</span>
-                  </div>
-                </div>
-                <p v-else class="text-sm text-gray-500">{{ detailItem.elemen ? detailItem.elemen + (detailItem.sub_elemen ? ' → ' + detailItem.sub_elemen : '') : 'Belum diisi' }}</p>
-              </dd>
-            </div>
-            <div class="sm:col-span-2">
-              <dt class="text-sm font-medium text-gray-500 mb-2">Kelompok</dt>
-              <dd class="mt-1">
-                <div v-if="detailItem.kelompok && detailItem.kelompok.length" class="space-y-3">
-                  <div v-for="(k, ki) in detailItem.kelompok" :key="k.id" class="border rounded-md p-3 bg-gray-50">
-                    <div class="text-sm font-medium text-gray-700">Kelompok {{ ki + 1 }}: {{ k.guru?.nama_lengkap || '-' }} (Fasilitator)</div>
-                    <ul class="mt-2 pl-4 space-y-1 text-sm text-gray-600">
-                      <li v-for="s in (k.siswa || [])" :key="s.id">{{ s.nama_lengkap }} <span class="text-gray-400">({{ s.kelas?.nama_kelas ?? '-' }})</span></li>
-                    </ul>
-                  </div>
-                </div>
-                <p v-else class="text-sm text-gray-500">Belum ada kelompok.</p>
-              </dd>
-            </div>
-          </dl>
-        </div>
-        <template #footer>
-          <button type="button" @click="showDetailModal = false" class="btn btn-secondary">Tutup</button>
-        </template>
-      </Modal>
 
       <!-- Form Modal (Tambah/Edit P5 - simpan langsung) -->
       <Modal v-model:show="showForm" :title="modalTitle" size="lg">
@@ -354,8 +294,6 @@ const SUB_ELEMEN_BY_ELEMEN = {
 const p5 = ref([])
 const loading = ref(false)
 const showForm = ref(false)
-const showDetailModal = ref(false)
-const detailItem = ref(null)
 const isEditing = ref(false)
 const submitting = ref(false)
 const errors = ref({})
@@ -442,17 +380,6 @@ const fetchP5 = async () => {
 const handleSearch = (searchTerm) => {
   filters.value.search = searchTerm
   fetchP5()
-}
-
-async function showDetail(item) {
-  try {
-    const res = await axios.get(`/admin/p5/${item.id}`)
-    detailItem.value = res.data
-    showDetailModal.value = true
-  } catch (e) {
-    console.error('Error fetching P5 detail:', e)
-    toast.error('Gagal memuat detail P5')
-  }
 }
 
 const editP5 = (item) => {

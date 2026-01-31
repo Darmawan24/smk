@@ -6,7 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Ukk;
 use App\Models\UkkEvent;
 use App\Models\Jurusan;
+use App\Models\Kelas;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * UkkController
@@ -177,6 +185,165 @@ class UkkController extends Controller
                   ->get();
 
         return response()->json($ukk);
+    }
+
+    /**
+     * List kelas (with tahun ajaran) that have UKK data for a jurusan.
+     * Used for download nilai UKK page: filter jurusan -> list per kelas.
+     *
+     * @param  Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function kelasList(Request $request)
+    {
+        $jurusanId = $request->get('jurusan_id');
+        if (! $jurusanId) {
+            return response()->json(['data' => []]);
+        }
+
+        $pairs = Ukk::query()
+            ->where('jurusan_id', $jurusanId)
+            ->whereHas('kelas', function ($q) {
+                $q->where('tingkat', 12)->orWhere('tingkat', '12');
+            })
+            ->select('kelas_id', 'tahun_ajaran_id')
+            ->distinct()
+            ->get();
+
+        $rows = $pairs->map(function ($p) {
+            $kelas = Kelas::with('jurusan')->find($p->kelas_id);
+            if (! $kelas || ((string) $kelas->tingkat !== '12')) {
+                return null;
+            }
+            $tahunAjaran = \App\Models\TahunAjaran::find($p->tahun_ajaran_id);
+            $tahun = $tahunAjaran ? (int) $tahunAjaran->tahun : 0;
+            $semester = $tahunAjaran ? (string) $tahunAjaran->semester : '';
+            return [
+                'kelas_id' => $p->kelas_id,
+                'tahun_ajaran_id' => $p->tahun_ajaran_id,
+                'kelas' => [
+                    'id' => $kelas->id,
+                    'nama_kelas' => $kelas->nama_kelas,
+                    'jurusan' => $kelas->jurusan ? [
+                        'id' => $kelas->jurusan->id,
+                        'nama_jurusan' => $kelas->jurusan->nama_jurusan,
+                    ] : null,
+                ],
+                'tahun_ajaran' => $tahunAjaran ? [
+                    'id' => $tahunAjaran->id,
+                    'tahun' => $tahunAjaran->tahun,
+                    'semester' => $tahunAjaran->semester,
+                    'label' => $tahun . '/' . ($tahun + 1) . ' - Semester ' . $semester,
+                ] : null,
+            ];
+        })->filter()->values();
+
+        return response()->json(['data' => $rows]);
+    }
+
+    /**
+     * Export daftar nilai UKK untuk satu kelas + tahun ajaran ke .xlsx.
+     * Format: DAFTAR NILAI UJI KOMPETENSI KEAHLIAN (UKK).
+     *
+     * @param  Request  $request
+     * @return StreamedResponse
+     */
+    public function exportExcel(Request $request)
+    {
+        $request->validate([
+            'jurusan_id' => 'required|exists:jurusan,id',
+            'kelas_id' => 'required|exists:kelas,id',
+            'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
+        ]);
+
+        $ukkList = Ukk::with([
+            'siswa.user',
+            'kelas.jurusan',
+            'tahunAjaran',
+            'pengujiInternal.user',
+        ])
+            ->where('jurusan_id', $request->jurusan_id)
+            ->where('kelas_id', $request->kelas_id)
+            ->where('tahun_ajaran_id', $request->tahun_ajaran_id)
+            ->orderBy('siswa_id')
+            ->get();
+
+        if ($ukkList->isEmpty()) {
+            return response()->json(['message' => 'Tidak ada data nilai UKK untuk kelas dan tahun ajaran ini.'], 404);
+        }
+
+        $kelas = $ukkList->first()->kelas;
+        $tahunAjaran = $ukkList->first()->tahunAjaran;
+        $namaSekolah = config('app.school_name', 'SMK');
+        $namaKelas = $kelas ? $kelas->nama_kelas : '';
+        $namaJurusan = $kelas && $kelas->jurusan ? $kelas->jurusan->nama_jurusan : '';
+        $tahunInt = $tahunAjaran ? (int) $tahunAjaran->tahun : 0;
+        $tahunLabel = $tahunAjaran ? $tahunInt . '/' . ($tahunInt + 1) : '';
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Nilai UKK');
+
+        $sheet->setCellValue('C1', strtoupper($namaSekolah));
+        $sheet->mergeCells('C1:J1');
+        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('C1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('D2', 'DAFTAR NILAI UJI KOMPETENSI KEAHLIAN (UKK)');
+        $sheet->mergeCells('D2:J2');
+        $sheet->getStyle('D2')->getFont()->setBold(true)->setSize(12);
+        $sheet->getStyle('D2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A3', 'Kelas');
+        $sheet->setCellValue('B3', ': ' . $namaKelas . ($namaJurusan ? ' (' . $namaJurusan . ')' : ''));
+        $sheet->getStyle('A3')->getFont()->setBold(true);
+
+        $sheet->setCellValue('G3', 'Tahun Pelajaran');
+        $sheet->setCellValue('H3', ': ' . $tahunLabel);
+        $sheet->getStyle('G3')->getFont()->setBold(true);
+
+        $headerRow = 5;
+        $headers = ['No', 'NIS', 'Nama Siswa', 'Instansi', 'Penguji Internal', 'Penguji Eksternal', 'Nilai Teori', 'Nilai Praktek', 'Nilai Akhir', 'Predikat'];
+        foreach ($headers as $col => $label) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1);
+            $sheet->setCellValue($colLetter . $headerRow, $label);
+            $sheet->getStyle($colLetter . $headerRow)->getFont()->setBold(true);
+            $sheet->getStyle($colLetter . $headerRow)->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('E2E8F0');
+            $sheet->getStyle($colLetter . $headerRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        }
+
+        $row = $headerRow + 1;
+        foreach ($ukkList as $index => $ukk) {
+            $siswa = $ukk->siswa;
+            $sheet->setCellValue('A' . $row, $index + 1);
+            $sheet->setCellValue('B' . $row, $siswa ? ($siswa->nis ?? '-') : '-');
+            $sheet->setCellValue('C' . $row, $siswa ? ($siswa->nama_lengkap ?? '-') : '-');
+            $sheet->setCellValue('D' . $row, $ukk->nama_du_di ?? '-');
+            $sheet->setCellValue('E' . $row, $ukk->pengujiInternal ? $ukk->pengujiInternal->nama_lengkap : '-');
+            $sheet->setCellValue('F' . $row, $ukk->penguji_eksternal ?? '-');
+            $sheet->setCellValue('G' . $row, $ukk->nilai_teori !== null ? $ukk->nilai_teori : '-');
+            $sheet->setCellValue('H' . $row, $ukk->nilai_praktek !== null ? $ukk->nilai_praktek : '-');
+            $sheet->setCellValue('I' . $row, $ukk->nilai_akhir !== null ? $ukk->nilai_akhir : '-');
+            $sheet->setCellValue('J' . $row, $ukk->predikat ?? '-');
+            $row++;
+        }
+
+        foreach (range('A', 'J') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $fileName = 'Daftar_Nilai_UKK_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $namaKelas) . '_' . $tahunLabel . '.xlsx';
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            $writer = new XlsxWriter($spreadsheet);
+            $writer->save('php://output');
+        }, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 }
 

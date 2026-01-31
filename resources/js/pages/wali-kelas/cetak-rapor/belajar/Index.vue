@@ -13,7 +13,7 @@
 
       <!-- Filters -->
       <div class="bg-white shadow rounded-lg p-6 mb-6">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <FormField
             v-model="filters.kelas_id"
             type="select"
@@ -34,7 +34,26 @@
             option-label="label"
             @update:model-value="onFiltersChange"
           />
+          <FormField
+            v-model="filters.jenis"
+            type="select"
+            label="Periode"
+            placeholder="Pilih Periode"
+            :options="periodeOptions"
+            option-value="value"
+            option-label="label"
+            @update:model-value="onFiltersChange"
+          />
+          <FormField
+            v-model="filters.titimangsa"
+            type="date"
+            label="Titimangsa Rapor"
+            :required="true"
+          />
         </div>
+        <p class="mt-2 text-xs text-gray-500">
+          Pilih periode STS (Tengah Semester) atau SAS (Akhir Semester). Cetak hanya tersedia jika nilai periode tersebut sudah diisi, semua nilai ≥ KKM, dan rapor sudah disetujui KS.
+        </p>
       </div>
 
       <!-- Loading -->
@@ -164,9 +183,9 @@
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">Pilih Kelas dan Semester</h3>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Pilih Kelas, Semester dan Periode</h3>
         <p class="mt-1 text-sm text-gray-500">
-          Pilih kelas dan semester untuk menampilkan daftar siswa dan cetak rapor.
+          Pilih kelas, semester, dan periode (STS/SAS) untuk menampilkan daftar siswa dan cetak rapor.
         </p>
       </div>
     </div>
@@ -188,7 +207,9 @@ const sortNama = ref(null) // null | 'asc' | 'desc'
 
 const filters = ref({
   kelas_id: '',
-  semester: ''
+  semester: '',
+  jenis: '',
+  titimangsa: new Date().toISOString().split('T')[0]
 })
 
 const semesterOptions = [
@@ -196,8 +217,13 @@ const semesterOptions = [
   { value: '2', label: 'Semester 2' }
 ]
 
+const periodeOptions = [
+  { value: 'sts', label: 'Tengah Semester (STS)' },
+  { value: 'sas', label: 'Akhir Semester (SAS)' }
+]
+
 const filtersReady = computed(() => {
-  return !!filters.value.kelas_id && !!filters.value.semester
+  return !!filters.value.kelas_id && !!filters.value.semester && !!filters.value.jenis
 })
 
 const sortedList = computed(() => {
@@ -236,12 +262,13 @@ async function fetchKelas() {
 }
 
 async function fetchList() {
-  if (!filters.value.kelas_id || !filters.value.semester) return
+  if (!filters.value.kelas_id || !filters.value.semester || !filters.value.jenis) return
   loading.value = true
   try {
     const params = new URLSearchParams({
       kelas_id: filters.value.kelas_id,
-      semester: filters.value.semester
+      semester: filters.value.semester,
+      jenis: filters.value.jenis
     })
     const res = await axios.get(`/wali-kelas/cetak-rapor/belajar?${params}`)
     list.value = res.data?.data ?? []
@@ -257,7 +284,10 @@ async function fetchList() {
 async function cetakRapor(row) {
   if (!row.can_cetak_rapor) return
   try {
-    const params = new URLSearchParams({ semester: filters.value.semester })
+    const params = new URLSearchParams({
+      semester: filters.value.semester,
+      jenis: filters.value.jenis
+    })
     const res = await axios.get(`/wali-kelas/cetak-rapor/belajar/${row.id}/download?${params}`, {
       responseType: 'blob'
     })
@@ -265,7 +295,7 @@ async function cetakRapor(row) {
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `rapor-${row.nis}-${row.nama_lengkap || 'siswa'}.pdf`
+    a.download = `rapor-${row.nis}-${row.nama_lengkap || 'siswa'}-${filters.value.jenis}.pdf`
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -289,14 +319,35 @@ async function cetakRapor(row) {
 }
 
 async function cetakTranskrip(row) {
+  if (!filters.value.titimangsa) {
+    toast.error('Harap pilih titimangsa rapor terlebih dahulu')
+    return
+  }
   try {
-    const params = new URLSearchParams({ semester: filters.value.semester })
-    await axios.get(`/wali-kelas/cetak-rapor/belajar/${row.id}/transkrip?${params}`)
+    const params = new URLSearchParams({
+      semester: filters.value.semester,
+      jenis: filters.value.jenis || 'sas',
+      titimangsa: filters.value.titimangsa
+    })
+    const res = await axios.get(`/wali-kelas/cetak-rapor/belajar/${row.id}/transkrip?${params}`, {
+      responseType: 'blob'
+    })
+    const blob = new Blob([res.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    toast.success('Transkrip dibuka di tab baru')
   } catch (e) {
-    if (e.response?.status === 501 || (e.response?.data?.message || '').toLowerCase().includes('menyusul')) {
-      toast.info('Format cetak transkrip menyusul.')
+    const msg = e.response?.data?.message || 'Gagal cetak transkrip'
+    if (e.response?.data instanceof Blob) {
+      try {
+        const text = await e.response.data.text()
+        const j = JSON.parse(text)
+        toast.error(j?.message || msg)
+      } catch (_) {
+        toast.error(msg)
+      }
     } else {
-      toast.error(e.response?.data?.message || 'Gagal cetak transkrip')
+      toast.error(typeof msg === 'string' ? msg : 'Gagal cetak transkrip')
     }
   }
 }

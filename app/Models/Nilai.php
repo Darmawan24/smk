@@ -89,6 +89,48 @@ class Nilai extends Model
     }
 
     /**
+     * Cek apakah nilai periode (STS atau SAS) untuk siswa di tahun ajaran sudah diisi.
+     * Dipakai untuk: rapor hanya bisa dicetak dan diapprove jika nilai periode tersebut sudah diisi.
+     * Jika $semester diberikan, dipakai untuk filter; jika tidak, pakai tahun_ajaran->semester.
+     * Fallback: jika tidak ada Nilai dengan CP kode_cp STS/SAS, dianggap periode terisi bila ada Nilai untuk semester tersebut.
+     *
+     * @param  int  $siswaId
+     * @param  int  $tahunAjaranId
+     * @param  string  $jenis  'sts' (Tengah Semester) atau 'sas' (Akhir Semester)
+     * @param  string|null  $semester  semester dari request (1 atau 2), opsional
+     * @return bool
+     */
+    public static function isPeriodeFilledForSiswa(int $siswaId, int $tahunAjaranId, string $jenis, ?string $semester = null): bool
+    {
+        $tahunAjaran = TahunAjaran::find($tahunAjaranId);
+        if (! $tahunAjaran) {
+            return false;
+        }
+
+        $semesterVal = $semester !== null && $semester !== '' ? (string) $semester : ($tahunAjaran->semester ?? null);
+        if ($semesterVal === null) {
+            $semesterVal = '1';
+        }
+
+        $baseQuery = self::where('siswa_id', $siswaId)
+            ->where('tahun_ajaran_id', $tahunAjaranId)
+            ->whereIn('semester', [$semesterVal, (int) $semesterVal]);
+
+        $kodeCp = strtoupper($jenis) === 'STS' ? 'STS' : 'SAS';
+        $hasStrict = (clone $baseQuery)
+            ->whereHas('capaianPembelajaran', function ($q) use ($kodeCp) {
+                $q->where('kode_cp', $kodeCp)->where('is_active', true);
+            })
+            ->exists();
+
+        if ($hasStrict) {
+            return true;
+        }
+
+        return $baseQuery->exists();
+    }
+
+    /**
      * Calculate nilai akhir from sumatif grades.
      *
      * @return float
