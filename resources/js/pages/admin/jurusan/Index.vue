@@ -39,18 +39,9 @@
           </div>
         </template>
 
-        <template #cell-statistik="{ item }">
-          <div class="text-sm">
-            <div class="flex items-center space-x-4">
-              <div>
-                <span class="text-gray-500">Kelas:</span>
-                <span class="ml-1 font-medium text-gray-900">{{ item.kelas_count || 0 }}</span>
-              </div>
-              <div>
-                <span class="text-gray-500">Siswa:</span>
-                <span class="ml-1 font-medium text-gray-900">{{ item.active_siswa_count || 0 }}</span>
-              </div>
-            </div>
+        <template #cell-kepala_jurusan="{ item }">
+          <div class="text-sm text-gray-900">
+            {{ (item.kepalaJurusan || item.kepala_jurusan)?.nama_lengkap || '-' }}
           </div>
         </template>
 
@@ -98,6 +89,18 @@
           </div>
           <div>
             <FormField
+              v-model="form.kepala_jurusan_id"
+              type="select"
+              label="Kepala Jurusan"
+              placeholder="Pilih Kepala Jurusan (opsional)"
+              :options="guruOptions"
+              option-value="id"
+              option-label="nama_lengkap"
+              :error="errors.kepala_jurusan_id"
+            />
+          </div>
+          <div>
+            <FormField
               v-model="form.deskripsi"
               type="textarea"
               label="Deskripsi"
@@ -137,6 +140,10 @@
               <div>
                 <dt class="text-sm font-medium text-gray-500">Nama Jurusan</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ jurusanDetail.nama_jurusan }}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Kepala Jurusan</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ (jurusanDetail.kepalaJurusan || jurusanDetail.kepala_jurusan)?.nama_lengkap || '-' }}</dd>
               </div>
               <div class="sm:col-span-2">
                 <dt class="text-sm font-medium text-gray-500">Deskripsi</dt>
@@ -223,8 +230,12 @@ const selectedJurusan = ref(null)
 const form = reactive({
   kode_jurusan: '',
   nama_jurusan: '',
-  deskripsi: ''
+  deskripsi: '',
+  kepala_jurusan_id: ''
 })
+
+// Guru options for Kepala Jurusan
+const guruOptions = ref([])
 
 const errors = ref({})
 
@@ -237,7 +248,7 @@ const filters = reactive({
 const columns = [
   { key: 'kode_jurusan', label: 'Kode & Nama Jurusan', sortable: true },
   { key: 'deskripsi', label: 'Deskripsi' },
-  { key: 'statistik', label: 'Statistik' }
+  { key: 'kepala_jurusan', label: 'Kepala Jurusan' }
 ]
 
 // Methods
@@ -277,6 +288,16 @@ const fetchDetail = async (jurusanId) => {
   }
 }
 
+const fetchGuru = async () => {
+  try {
+    const response = await axios.get('/lookup/guru')
+    guruOptions.value = response.data || []
+  } catch (error) {
+    console.error('Gagal mengambil data guru', error)
+    guruOptions.value = []
+  }
+}
+
 const resetForm = () => {
   Object.keys(form).forEach(key => {
     form[key] = ''
@@ -297,6 +318,7 @@ const editJurusan = (jurusanItem) => {
   form.kode_jurusan = jurusanItem.kode_jurusan || ''
   form.nama_jurusan = jurusanItem.nama_jurusan || ''
   form.deskripsi = jurusanItem.deskripsi || ''
+  form.kepala_jurusan_id = jurusanItem.kepala_jurusan_id ?? ''
   showForm.value = true
 }
 
@@ -307,8 +329,11 @@ const submitForm = async () => {
 
     const url = isEditing.value ? `/admin/jurusan/${selectedJurusan.value.id}` : '/admin/jurusan'
     const method = isEditing.value ? 'put' : 'post'
-    
-    await axios[method](url, form)
+    const payload = {
+      ...form,
+      kepala_jurusan_id: form.kepala_jurusan_id || null
+    }
+    await axios[method](url, payload)
     
     toast.success(`Jurusan berhasil ${isEditing.value ? 'diperbarui' : 'ditambahkan'}`)
     closeForm()
@@ -359,5 +384,6 @@ const handleSearch = (searchTerm) => {
 // Lifecycle
 onMounted(() => {
   fetchJurusan()
+  fetchGuru()
 })
 </script>

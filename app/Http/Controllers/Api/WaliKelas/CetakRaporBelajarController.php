@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\WaliKelas;
 
 use App\Http\Controllers\Controller;
+use App\Models\Rapor;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\Nilai;
@@ -68,7 +69,8 @@ class CetakRaporBelajarController extends Controller
         $result = [];
         $no = 1;
         foreach ($siswaList as $siswa) {
-            $canCetakRapor = $this->canCetakRapor($siswa->id, $tahunAjaran->id, $request->semester);
+            $canCetakRapor = $this->canCetakRapor($siswa->id, $tahunAjaran->id, $request->semester)
+                && $this->hasApprovedRapor($siswa->id, $tahunAjaran->id);
             $result[] = [
                 'no' => $no++,
                 'id' => $siswa->id,
@@ -113,8 +115,20 @@ class CetakRaporBelajarController extends Controller
     }
 
     /**
+     * Check if rapor for siswa in tahun ajaran has been approved by kepala sekolah.
+     * One Rapor per (siswa_id, tahun_ajaran_id); approval applies to both semesters.
+     */
+    protected function hasApprovedRapor(int $siswaId, int $tahunAjaranId): bool
+    {
+        return Rapor::where('siswa_id', $siswaId)
+            ->where('tahun_ajaran_id', $tahunAjaranId)
+            ->whereIn('status', ['approved', 'published'])
+            ->exists();
+    }
+
+    /**
      * Download rapor as PDF (format RAPOR Kurmer).
-     * Rejects if any nilai < KKM.
+     * Rejects if any nilai < KKM or rapor not approved by kepala sekolah.
      */
     public function download(Request $request, Siswa $siswa)
     {
@@ -137,6 +151,12 @@ class CetakRaporBelajarController extends Controller
         if (!$this->canCetakRapor($siswa->id, $tahunAjaran->id, $request->semester)) {
             return response()->json([
                 'message' => 'Cetak rapor tidak dapat dilakukan. Terdapat nilai di bawah KKM.',
+            ], 403);
+        }
+
+        if (!$this->hasApprovedRapor($siswa->id, $tahunAjaran->id)) {
+            return response()->json([
+                'message' => 'Rapor belum disetujui kepala sekolah. Cetak rapor belum dapat dilakukan.',
             ], 403);
         }
 

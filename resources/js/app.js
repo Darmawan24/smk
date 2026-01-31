@@ -28,6 +28,7 @@ import PklIndex from './pages/admin/pkl/Index.vue'
 import UkkIndex from './pages/admin/ukk/Index.vue'
 import UkkEventsIndex from './pages/admin/ukk-events/Index.vue'
 import AdminP5Index from './pages/admin/p5/Index.vue'
+import AdminP5KelompokIndex from './pages/admin/p5/Kelompok.vue'
 import CetakRaporHasilBelajarIndex from './pages/admin/cetak-rapor/hasil-belajar/Index.vue'
 import CetakRaporP5Index from './pages/admin/cetak-rapor/p5/Index.vue'
 import CetakRaporLeggerIndex from './pages/admin/cetak-rapor/legger/Index.vue'
@@ -204,6 +205,11 @@ const routes = [
         path: 'p5',
         name: 'admin.p5.index',
         component: AdminP5Index
+      },
+      {
+        path: 'p5/kelompok',
+        name: 'admin.p5.kelompok.index',
+        component: AdminP5KelompokIndex
       },
         {
           path: 'cetak-rapor/hasil-belajar',

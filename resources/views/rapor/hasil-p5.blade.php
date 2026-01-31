@@ -120,7 +120,7 @@
                 </table>
             </div>
 
-            {{-- Tujuan Pembelajaran: No | Deskripsi | MB | SB | BSH | SAB (checkmark) --}}
+            {{-- Tujuan Pembelajaran: No | Tujuan Pembelajaran | MB | SB | BSH | SAB (checkmark) --}}
             <div class="section-title">Tujuan Pembelajaran</div>
             @if(!empty($project['elemen_sub']))
                 <table class="tujuan-table">
@@ -135,6 +135,14 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {{-- Baris nama dimensi (header grup, seperti pada gambar 2) --}}
+                        <tr class="dimensi-header-row">
+                            <td colspan="2" class="desc-col bold" style="background: #e8e8e8; padding: 8px 10px;">{{ $project['dimensi'] ?? '-' }}</td>
+                            <td class="predikat-col" style="background: #e8e8e8;"></td>
+                            <td class="predikat-col" style="background: #e8e8e8;"></td>
+                            <td class="predikat-col" style="background: #e8e8e8;"></td>
+                            <td class="predikat-col" style="background: #e8e8e8;"></td>
+                        </tr>
                         @foreach($project['elemen_sub'] as $i => $es)
                             @php
                                 $p = $es['predikat'] ?? null;

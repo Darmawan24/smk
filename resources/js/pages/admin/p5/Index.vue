@@ -29,10 +29,13 @@
         </template>
 
         <template #cell-kelompok_info="{ item }">
-          <div class="text-sm text-gray-900">
+          <router-link
+            :to="{ path: '/admin/p5/kelompok', query: { p5_id: item.id } }"
+            class="text-sm text-blue-600 hover:text-blue-900"
+          >
             <span v-if="item.kelompok && item.kelompok.length">{{ item.kelompok.length }} kelompok</span>
             <span v-else class="text-gray-500">Belum ada kelompok</span>
-          </div>
+          </router-link>
         </template>
 
         <template #row-actions="{ item }">
@@ -41,11 +44,6 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-              </svg>
-            </button>
-            <button @click="openBuatKelompok(item)" class="text-green-600 hover:text-green-900" title="Buat Kelompok">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
               </svg>
             </button>
             <button @click="editP5(item)" class="text-blue-600 hover:text-blue-900" title="Edit">
@@ -173,14 +171,6 @@
                   option-label="label"
                 />
               </div>
-              <FormField
-                v-model="row.deskripsi_tujuan"
-                type="textarea"
-                label="Tujuan Pembelajaran (deskripsi sub-elemen)"
-                placeholder="Deskripsi lengkap untuk kolom Tujuan Pembelajaran di rapor P5 (opsional)"
-                :error="errors[`elemen_sub.${index}.deskripsi_tujuan`]"
-                rows="2"
-              />
             </div>
             <button type="button" @click="addElemenSubRow" class="btn btn-secondary w-full sm:w-auto">
               <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,55 +206,6 @@
         </form>
       </Modal>
 
-      <!-- Modal Buat Kelompok -->
-      <Modal v-model:show="showKelompokModal" :title="kelompokModalTitle" size="xl">
-        <div v-if="selectedP5ForKelompok" class="space-y-6">
-          <p class="text-sm text-gray-500">Atur kelompok dengan guru fasilitator dan siswa. Guru dan siswa yang sudah dipilih di kelompok lain tidak akan tampil lagi.</p>
-          <div v-for="(row, index) in kelompokForm" :key="index" class="border rounded-lg p-4 bg-gray-50/50 space-y-4">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-gray-700">Kelompok {{ index + 1 }}</span>
-              <button v-if="kelompokForm.length > 1" type="button" @click="removeKelompokRow(index)" class="text-red-600 hover:text-red-800 text-sm">
-                Hapus kelompok
-              </button>
-            </div>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField
-                v-model="row.guru_id"
-                type="select"
-                label="Guru Fasilitator"
-                placeholder="Pilih guru fasilitator"
-                :options="guruOptionsForKelompokRow(index)"
-                option-value="id"
-                option-label="nama_lengkap"
-              />
-              <div class="space-y-1 sm:col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Siswa</label>
-                <MultiSelect
-                  v-model="row.siswa_ids"
-                  :options="siswaOptionsForKelompokRow(index)"
-                  option-value="id"
-                  option-label="label_display"
-                  placeholder="Pilih siswa (nama - kelas)"
-                  :searchable="true"
-                  :max-height="180"
-                />
-              </div>
-            </div>
-          </div>
-          <button type="button" @click="addKelompokRow" class="btn btn-secondary w-full sm:w-auto">
-            <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            Tambah kelompok lainnya
-          </button>
-          <div class="flex justify-end space-x-3 pt-4 border-t">
-            <button type="button" @click="closeKelompokModal" class="btn btn-secondary">Batal</button>
-            <button type="button" @click="saveKelompok" :disabled="savingKelompok" class="btn btn-primary">
-              {{ savingKelompok ? 'Menyimpan...' : 'Simpan Kelompok' }}
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   </div>
 </template>
@@ -276,7 +217,6 @@ import { useToast } from 'vue-toastification'
 import DataTable from '../../../components/ui/DataTable.vue'
 import Modal from '../../../components/ui/Modal.vue'
 import FormField from '../../../components/ui/FormField.vue'
-import MultiSelect from '../../../components/ui/MultiSelect.vue'
 
 const toast = useToast()
 
@@ -416,14 +356,8 @@ const loading = ref(false)
 const showForm = ref(false)
 const showDetailModal = ref(false)
 const detailItem = ref(null)
-const showKelompokModal = ref(false)
-const selectedP5ForKelompok = ref(null)
-const kelompokForm = ref([])
-const allFasilitatorOptions = ref([])
-const allSiswaOptions = ref([])
 const isEditing = ref(false)
 const submitting = ref(false)
-const savingKelompok = ref(false)
 const errors = ref({})
 
 const filters = ref({
@@ -441,11 +375,6 @@ const form = ref({
 const elemenSubForm = ref([{ elemen: '', sub_elemen: '', deskripsi_tujuan: '' }])
 
 const modalTitle = computed(() => (isEditing.value ? 'Edit P5' : 'Tambah P5'))
-const kelompokModalTitle = computed(() =>
-  selectedP5ForKelompok.value
-    ? `Buat Kelompok - ${selectedP5ForKelompok.value.judul || selectedP5ForKelompok.value.tema || 'P5'}`
-    : 'Buat Kelompok'
-)
 
 const dimensiOptions = computed(() =>
   DIMENSI_LIST.map((d) => ({ value: d, label: d }))
@@ -486,95 +415,6 @@ function addElemenSubRow() {
 
 function removeElemenSubRow(index) {
   elemenSubForm.value.splice(index, 1)
-}
-
-function guruOptionsForKelompokRow(rowIndex) {
-  const selectedGuruIds = kelompokForm.value
-    .map((r, i) => (i !== rowIndex ? r.guru_id : null))
-    .filter(Boolean)
-  return (allFasilitatorOptions.value || []).filter(
-    (g) => g.id === kelompokForm.value[rowIndex]?.guru_id || !selectedGuruIds.includes(g.id)
-  )
-}
-
-function siswaOptionsForKelompokRow(rowIndex) {
-  const selectedSiswaIds = new Set()
-  kelompokForm.value.forEach((r, i) => {
-    if (i !== rowIndex && r.siswa_ids) r.siswa_ids.forEach((id) => selectedSiswaIds.add(id))
-  })
-  return (allSiswaOptions.value || []).filter(
-    (s) => (kelompokForm.value[rowIndex]?.siswa_ids || []).includes(s.id) || !selectedSiswaIds.has(s.id)
-  )
-}
-
-async function openBuatKelompok(item) {
-  selectedP5ForKelompok.value = item
-  try {
-    const [kelompokRes, fasRes, siswaRes] = await Promise.all([
-      axios.get(`/admin/p5/${item.id}/kelompok`),
-      axios.get(`/admin/p5/${item.id}/available-fasilitator-kelompok`),
-      axios.get(`/admin/p5/${item.id}/available-siswa-kelompok`)
-    ])
-    const kelompok = kelompokRes.data?.kelompok || []
-    const existingGurus = (kelompokRes.data?.kelompok || []).map((k) => k.guru).filter(Boolean)
-    const existingSiswa = (kelompokRes.data?.kelompok || []).flatMap((k) => k.siswa || [])
-    allFasilitatorOptions.value = [...existingGurus, ...(fasRes.data || [])].filter(
-      (g, i, arr) => arr.findIndex((x) => x.id === g.id) === i
-    )
-    allSiswaOptions.value = [...existingSiswa, ...(siswaRes.data || [])].filter(
-      (s, i, arr) => arr.findIndex((x) => x.id === s.id) === i
-    )
-    kelompokForm.value =
-      kelompok.length > 0
-        ? kelompok.map((k) => ({
-            guru_id: k.guru_id || k.guru?.id,
-            siswa_ids: (k.siswa || []).map((s) => s.id)
-          }))
-        : [{ guru_id: '', siswa_ids: [] }]
-    showKelompokModal.value = true
-  } catch (e) {
-    console.error('Error opening Buat Kelompok:', e)
-    toast.error('Gagal memuat data kelompok')
-  }
-}
-
-function addKelompokRow() {
-  kelompokForm.value.push({ guru_id: '', siswa_ids: [] })
-}
-
-function removeKelompokRow(index) {
-  kelompokForm.value.splice(index, 1)
-}
-
-function closeKelompokModal() {
-  showKelompokModal.value = false
-  selectedP5ForKelompok.value = null
-  kelompokForm.value = []
-  allFasilitatorOptions.value = []
-  allSiswaOptions.value = []
-}
-
-async function saveKelompok() {
-  if (!selectedP5ForKelompok.value) return
-  const payload = kelompokForm.value
-    .filter((r) => r.guru_id && r.siswa_ids && r.siswa_ids.length > 0)
-  if (payload.length === 0) {
-    toast.error('Minimal satu kelompok dengan guru fasilitator dan siswa')
-    return
-  }
-  savingKelompok.value = true
-  try {
-    await axios.post(`/admin/p5/${selectedP5ForKelompok.value.id}/kelompok`, {
-      kelompok: payload.map((r) => ({ guru_id: r.guru_id, siswa_ids: r.siswa_ids }))
-    })
-    toast.success('Kelompok berhasil disimpan')
-    closeKelompokModal()
-    fetchP5()
-  } catch (e) {
-    toast.error(e.response?.data?.message || 'Gagal menyimpan kelompok')
-  } finally {
-    savingKelompok.value = false
-  }
 }
 
 const fetchP5 = async () => {

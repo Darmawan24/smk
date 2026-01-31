@@ -13,15 +13,19 @@ class UkkEventController extends Controller
         $request->validate([
             'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
             'jurusan_id' => 'required|exists:jurusan,id',
-            'kelas_id' => 'required|exists:kelas,id',
+            'kelas_id' => 'nullable|exists:kelas,id',
         ]);
-        $e = UkkEvent::with(['tahunAjaran', 'jurusan', 'kelas', 'pengujiInternal.user'])
+        $query = UkkEvent::with(['tahunAjaran', 'jurusan', 'kelas', 'pengujiInternal.user'])
             ->where('tahun_ajaran_id', $request->tahun_ajaran_id)
-            ->where('jurusan_id', $request->jurusan_id)
-            ->where('kelas_id', $request->kelas_id)
-            ->first();
+            ->where('jurusan_id', $request->jurusan_id);
+        if ($request->filled('kelas_id')) {
+            $query->where('kelas_id', $request->kelas_id);
+        } else {
+            $query->whereNull('kelas_id');
+        }
+        $e = $query->first();
         if (!$e) {
-            return response()->json(['message' => 'Data UKK tidak ditemukan untuk tahun ajaran, jurusan, dan kelas ini.'], 404);
+            return response()->json(['message' => 'Data UKK tidak ditemukan untuk tahun ajaran dan jurusan ini.'], 404);
         }
         return response()->json($e);
     }
@@ -57,28 +61,35 @@ class UkkEventController extends Controller
         $v = $request->validate([
             'tahun_ajaran_id' => 'required|exists:tahun_ajaran,id',
             'jurusan_id' => 'required|exists:jurusan,id',
-            'kelas_id' => 'required|exists:kelas,id',
+            'kelas_id' => 'nullable|exists:kelas,id',
             'nama_du_di' => 'nullable|string|max:255',
             'tanggal_ujian' => 'required|date',
             'penguji_internal_id' => 'required|exists:guru,id',
             'penguji_eksternal' => 'nullable|string|max:255',
         ]);
 
-        $kelas = \App\Models\Kelas::find($v['kelas_id']);
-        if (!$kelas || $kelas->jurusan_id != $v['jurusan_id']) {
-            return response()->json(['message' => 'Kelas tidak sesuai dengan jurusan yang dipilih.'], 422);
+        $kelasId = $v['kelas_id'] ?? null;
+        if ($kelasId) {
+            $kelas = \App\Models\Kelas::find($kelasId);
+            if (!$kelas || (int) $kelas->jurusan_id !== (int) $v['jurusan_id']) {
+                return response()->json(['message' => 'Kelas tidak sesuai dengan jurusan yang dipilih.'], 422);
+            }
         }
 
-        $exists = UkkEvent::where('tahun_ajaran_id', $v['tahun_ajaran_id'])
-            ->where('jurusan_id', $v['jurusan_id'])
-            ->where('kelas_id', $v['kelas_id'])
-            ->exists();
-        if ($exists) {
+        $existsQuery = UkkEvent::where('tahun_ajaran_id', $v['tahun_ajaran_id'])
+            ->where('jurusan_id', $v['jurusan_id']);
+        if ($kelasId) {
+            $existsQuery->where('kelas_id', $kelasId);
+        } else {
+            $existsQuery->whereNull('kelas_id');
+        }
+        if ($existsQuery->exists()) {
             return response()->json([
-                'message' => 'Data UKK untuk tahun ajaran, jurusan, dan kelas ini sudah ada.',
+                'message' => 'Data UKK untuk tahun ajaran dan jurusan ini sudah ada.',
             ], 422);
         }
 
+        $v['kelas_id'] = $kelasId;
         $event = UkkEvent::create($v);
         $event->load(['tahunAjaran', 'jurusan', 'kelas', 'pengujiInternal.user']);
         return response()->json($event, 201);
@@ -95,7 +106,7 @@ class UkkEventController extends Controller
         $v = $request->validate([
             'tahun_ajaran_id' => 'sometimes|required|exists:tahun_ajaran,id',
             'jurusan_id' => 'sometimes|required|exists:jurusan,id',
-            'kelas_id' => 'sometimes|required|exists:kelas,id',
+            'kelas_id' => 'nullable|exists:kelas,id',
             'nama_du_di' => 'nullable|string|max:255',
             'tanggal_ujian' => 'sometimes|required|date',
             'penguji_internal_id' => 'sometimes|required|exists:guru,id',
@@ -104,21 +115,26 @@ class UkkEventController extends Controller
 
         $ta = $v['tahun_ajaran_id'] ?? $ukk_event->tahun_ajaran_id;
         $ju = $v['jurusan_id'] ?? $ukk_event->jurusan_id;
-        $ke = $v['kelas_id'] ?? $ukk_event->kelas_id;
-        if (array_key_exists('kelas_id', $v) || array_key_exists('jurusan_id', $v)) {
+        $ke = array_key_exists('kelas_id', $v) ? $v['kelas_id'] : $ukk_event->kelas_id;
+
+        if ($ke) {
             $kelas = \App\Models\Kelas::find($ke);
             if (!$kelas || (int) $kelas->jurusan_id !== (int) $ju) {
                 return response()->json(['message' => 'Kelas tidak sesuai dengan jurusan yang dipilih.'], 422);
             }
         }
+
         if (array_key_exists('tahun_ajaran_id', $v) || array_key_exists('jurusan_id', $v) || array_key_exists('kelas_id', $v)) {
-            $other = UkkEvent::where('tahun_ajaran_id', $ta)
+            $otherQuery = UkkEvent::where('tahun_ajaran_id', $ta)
                 ->where('jurusan_id', $ju)
-                ->where('kelas_id', $ke)
-                ->where('id', '!=', $ukk_event->id)
-                ->exists();
-            if ($other) {
-                return response()->json(['message' => 'Data UKK untuk tahun ajaran, jurusan, dan kelas ini sudah ada.'], 422);
+                ->where('id', '!=', $ukk_event->id);
+            if ($ke) {
+                $otherQuery->where('kelas_id', $ke);
+            } else {
+                $otherQuery->whereNull('kelas_id');
+            }
+            if ($otherQuery->exists()) {
+                return response()->json(['message' => 'Data UKK untuk tahun ajaran dan jurusan ini sudah ada.'], 422);
             }
         }
 

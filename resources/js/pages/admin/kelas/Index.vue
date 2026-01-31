@@ -59,13 +59,6 @@
           <span v-else class="text-gray-400">-</span>
         </template>
 
-        <template #cell-wali_kelas="{ item }">
-          <div v-if="item.wali_kelas" class="text-sm text-gray-900">
-            {{ item.wali_kelas.name }}
-          </div>
-          <span v-else class="text-gray-400">Belum ditetapkan</span>
-        </template>
-
         <template #cell-kapasitas="{ item }">
           <div class="text-sm">
             <div class="font-medium text-gray-900">
@@ -300,7 +293,6 @@ const columns = [
   { key: 'nama_kelas', label: 'Nama Kelas', sortable: true },
   { key: 'jurusan', label: 'Jurusan', sortable: true },
   { key: 'tingkat', label: 'Tingkat', sortable: true },
-  { key: 'wali_kelas', label: 'Wali Kelas' },
   { key: 'kapasitas', label: 'Siswa / Kapasitas' }
 ]
 

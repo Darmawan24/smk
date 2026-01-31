@@ -199,7 +199,8 @@
                     type="checkbox"
                     :value="rapor.id"
                     v-model="selectedRapor"
-                    class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    :disabled="rapor.status === 'approved' || rapor.status === 'published'"
+                    class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
                   />
                 </td>
                 <td class="text-center">{{ index + 1 }}</td>
@@ -243,7 +244,7 @@
                       </svg>
                     </button>
                     <button 
-                      v-if="rapor.status === 'pending'" 
+                      v-if="rapor.status === 'pending' || rapor.status === 'draft'" 
                       @click="approveRapor(rapor)" 
                       class="text-green-600 hover:text-green-900"
                     >
@@ -252,7 +253,7 @@
                       </svg>
                     </button>
                     <button 
-                      v-if="rapor.status === 'pending'" 
+                      v-if="rapor.status === 'pending' || rapor.status === 'draft'" 
                       @click="rejectRapor(rapor)" 
                       class="text-red-600 hover:text-red-900"
                     >
@@ -460,14 +461,13 @@ const semesterOptions = [
 
 const statusOptions = [
   { value: '', label: 'Semua Status' },
-  { value: 'pending', label: 'Menunggu Persetujuan' },
-  { value: 'approved', label: 'Disetujui' },
-  { value: 'rejected', label: 'Ditolak' }
+  { value: 'belum', label: 'Belum' },
+  { value: 'setujui', label: 'Setujui' }
 ]
 
 // Computed
 const allSelected = computed(() => {
-  const pendingRapor = raporData.value.filter(r => r.status === 'pending')
+  const pendingRapor = raporData.value.filter(r => r.status === 'pending' || r.status === 'draft')
   return pendingRapor.length > 0 && selectedRapor.value.length === pendingRapor.length
 })
 
@@ -483,9 +483,12 @@ const approvalMessage = computed(() => {
 // Methods
 const fetchTahunAjaran = async () => {
   try {
-    const response = await axios.get('/admin/tahun-ajaran')
-    tahunAjaranOptions.value = response.data.data
-    
+    const response = await axios.get('/lookup/tahun-ajaran')
+    const data = Array.isArray(response.data) ? response.data : (response.data?.data ?? [])
+    tahunAjaranOptions.value = data.map(ta => ({
+      ...ta,
+      full_description: ta.full_description ?? `${ta.tahun ?? ''} - Semester ${ta.semester ?? ''}`
+    }))
     // Set current active year as default
     const activeYear = tahunAjaranOptions.value.find(t => t.is_active)
     if (activeYear) {
@@ -498,8 +501,8 @@ const fetchTahunAjaran = async () => {
 
 const fetchKelas = async () => {
   try {
-    const response = await axios.get('/admin/kelas')
-    kelasOptions.value = response.data.data
+    const response = await axios.get('/lookup/kelas')
+    kelasOptions.value = Array.isArray(response.data) ? response.data : (response.data?.data ?? [])
   } catch (error) {
     console.error('Failed to fetch kelas:', error)
   }
@@ -515,8 +518,8 @@ const fetchRapor = async () => {
     if (filters.status) params.append('status', filters.status)
     
     const response = await axios.get(`/kepala-sekolah/rapor-approval?${params}`)
-    raporData.value = response.data.data
-    summary.value = response.data.summary || {}
+    raporData.value = Array.isArray(response.data?.data) ? response.data.data : []
+    summary.value = response.data?.summary ?? {}
     selectedRapor.value = []
   } catch (error) {
     toast.error('Gagal mengambil data rapor')
@@ -527,7 +530,7 @@ const fetchRapor = async () => {
 }
 
 const toggleSelectAll = () => {
-  const pendingRapor = raporData.value.filter(r => r.status === 'pending')
+  const pendingRapor = raporData.value.filter(r => r.status === 'pending' || r.status === 'draft')
   if (allSelected.value) {
     selectedRapor.value = []
   } else {
@@ -611,21 +614,15 @@ const bulkApprove = () => {
 }
 
 const getStatusBadge = (status) => {
-  const badges = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800'
-  }
-  return badges[status] || 'bg-gray-100 text-gray-800'
+  if (status === 'approved' || status === 'published') return 'bg-green-100 text-green-800'
+  if (status === 'pending' || status === 'draft') return 'bg-yellow-100 text-yellow-800'
+  return 'bg-gray-100 text-gray-800'
 }
 
 const getStatusText = (status) => {
-  const texts = {
-    pending: 'Menunggu',
-    approved: 'Disetujui',
-    rejected: 'Ditolak'
-  }
-  return texts[status] || status
+  if (status === 'approved' || status === 'published') return 'Setujui'
+  if (status === 'pending' || status === 'draft') return 'Belum'
+  return status
 }
 
 const getPredicate = (nilai) => {

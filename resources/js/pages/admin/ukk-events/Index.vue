@@ -3,7 +3,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <DataTable
         title="Data UKK (Uji Kompetensi Keahlian)"
-        description="Kelola data ujian UKK (tahun, jurusan, kelas, DU/DI, penguji)"
+        description="Kelola data ujian UKK (tahun, jurusan, DU/DI, penguji)"
         :data="events"
         :columns="columns"
         :loading="loading"
@@ -27,10 +27,6 @@
 
         <template #cell-jurusan="{ item }">
           <div class="text-sm text-gray-900">{{ item.jurusan?.nama_jurusan || '-' }}</div>
-        </template>
-
-        <template #cell-kelas="{ item }">
-          <div class="text-sm text-gray-900">{{ item.kelas?.nama_kelas || '-' }}</div>
         </template>
 
         <template #cell-nama_du_di="{ item }">
@@ -90,22 +86,8 @@
               required
               :error="errors.jurusan_id"
               :disabled="isEditing"
-              @update:model-value="onJurusanChange"
             />
           </div>
-          <FormField
-            v-model="form.kelas_id"
-            type="select"
-            label="Kelas"
-            placeholder="Pilih kelas"
-            :options="kelasOptions"
-            option-value="id"
-            option-label="nama_kelas"
-            required
-            :error="errors.kelas_id"
-            :disabled="!form.jurusan_id || isEditing"
-            @update:model-value="() => {}"
-          />
           <FormField
             v-model="form.nama_du_di"
             type="text"
@@ -154,7 +136,7 @@
       <ConfirmDialog
         v-model:show="showDeleteConfirm"
         title="Hapus Data UKK"
-        :message="`Hapus data UKK ${selectedEvent?.jurusan?.nama_jurusan || ''} - ${selectedEvent?.kelas?.nama_kelas || ''}?`"
+        :message="`Hapus data UKK ${selectedEvent?.jurusan?.nama_jurusan || ''}?`"
         confirm-text="Ya, Hapus"
         type="error"
         :loading="deleting"
@@ -186,7 +168,6 @@ const selectedEvent = ref(null)
 const form = reactive({
   tahun_ajaran_id: '',
   jurusan_id: '',
-  kelas_id: '',
   nama_du_di: '',
   tanggal_ujian: '',
   penguji_internal_id: '',
@@ -195,18 +176,15 @@ const form = reactive({
 
 const errors = ref({})
 const jurusanOptions = ref([])
-const kelasOptions = ref([])
 const guruOptions = ref([])
 const tahunAjaranOptions = ref([])
 
 const columns = [
   { key: 'tahun', label: 'Tahun Ajaran' },
   { key: 'jurusan', label: 'Jurusan' },
-  { key: 'kelas', label: 'Kelas' },
   { key: 'nama_du_di', label: 'DU/DI' },
   { key: 'tanggal_ujian', label: 'Tanggal Ujian' },
   { key: 'penguji', label: 'Penguji' },
-  { key: 'actions', label: 'Aksi' }
 ]
 
 function formatDate (d) {
@@ -244,17 +222,6 @@ async function fetchJurusan () {
   } catch (_) {}
 }
 
-async function fetchKelas (jurusanId) {
-  if (!jurusanId) { kelasOptions.value = []; return }
-  try {
-    const r = await axios.get('/admin/kelas', { params: { per_page: 100 } })
-    const all = r.data?.data ?? r.data ?? []
-    kelasOptions.value = all.filter(k => k.jurusan_id == jurusanId && (k.tingkat == '12' || k.tingkat === 12))
-  } catch (_) {
-    kelasOptions.value = []
-  }
-}
-
 async function fetchGuru () {
   try {
     const r = await axios.get('/lookup/guru')
@@ -272,20 +239,14 @@ async function fetchTahunAjaran () {
   }
 }
 
-function onJurusanChange () {
-  form.kelas_id = ''
-  fetchKelas(form.jurusan_id)
-}
-
 function openForm () {
   isEditing.value = false
   selectedEvent.value = null
   Object.assign(form, {
-    tahun_ajaran_id: '', jurusan_id: '', kelas_id: '', nama_du_di: '',
+    tahun_ajaran_id: '', jurusan_id: '', nama_du_di: '',
     tanggal_ujian: '', penguji_internal_id: '', penguji_eksternal: ''
   })
   errors.value = {}
-  kelasOptions.value = []
   showForm.value = true
 }
 
@@ -299,13 +260,11 @@ function editEvent (item) {
   selectedEvent.value = item
   form.tahun_ajaran_id = item.tahun_ajaran_id
   form.jurusan_id = item.jurusan_id
-  form.kelas_id = item.kelas_id
   form.nama_du_di = item.nama_du_di || ''
   form.tanggal_ujian = item.tanggal_ujian ? item.tanggal_ujian.split('T')[0] : ''
   form.penguji_internal_id = item.penguji_internal_id
   form.penguji_eksternal = item.penguji_eksternal || ''
   errors.value = {}
-  fetchKelas(item.jurusan_id)
   showForm.value = true
 }
 
@@ -316,7 +275,7 @@ async function submitForm () {
     const payload = {
       tahun_ajaran_id: form.tahun_ajaran_id,
       jurusan_id: form.jurusan_id,
-      kelas_id: form.kelas_id,
+      kelas_id: null,
       nama_du_di: form.nama_du_di || null,
       tanggal_ujian: form.tanggal_ujian,
       penguji_internal_id: form.penguji_internal_id,

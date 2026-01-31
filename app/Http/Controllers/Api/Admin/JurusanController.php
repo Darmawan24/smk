@@ -23,7 +23,7 @@ class JurusanController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Jurusan::withCount(['kelas', 'siswa']);
+        $query = Jurusan::with(['kepalaJurusan'])->withCount(['kelas', 'siswa']);
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -36,9 +36,10 @@ class JurusanController extends Controller
 
         $jurusan = $query->orderBy('kode_jurusan')->paginate($request->get('per_page', 15));
 
-        // Add computed attributes
+        // Add computed attributes and ensure kepala jurusan is serialized (snake_case for API)
         $jurusan->getCollection()->transform(function ($item) {
             $item->active_siswa_count = $item->siswa()->where('status', 'aktif')->count();
+            $item->setAttribute('kepala_jurusan', $item->getRelation('kepalaJurusan'));
             return $item;
         });
 
@@ -57,6 +58,7 @@ class JurusanController extends Controller
             'kode_jurusan' => ['required', 'string', 'max:10', 'unique:jurusan'],
             'nama_jurusan' => ['required', 'string', 'max:255'],
             'deskripsi' => ['nullable', 'string'],
+            'kepala_jurusan_id' => ['nullable', 'exists:guru,id'],
         ]);
 
         DB::beginTransaction();
@@ -65,6 +67,7 @@ class JurusanController extends Controller
                 'kode_jurusan' => strtoupper($request->kode_jurusan),
                 'nama_jurusan' => $request->nama_jurusan,
                 'deskripsi' => $request->deskripsi,
+                'kepala_jurusan_id' => $request->filled('kepala_jurusan_id') ? $request->kepala_jurusan_id : null,
             ]);
 
             DB::commit();
@@ -90,7 +93,7 @@ class JurusanController extends Controller
      */
     public function show(Jurusan $jurusan)
     {
-        $jurusan->load(['kelas', 'siswa.user', 'ukk']);
+        $jurusan->load(['kelas', 'siswa.user', 'ukk', 'kepalaJurusan']);
         
         // Add computed attributes
         $jurusan->active_siswa_count = $jurusan->siswa()->where('status', 'aktif')->count();
@@ -112,6 +115,7 @@ class JurusanController extends Controller
             'kode_jurusan' => ['required', 'string', 'max:10', Rule::unique('jurusan')->ignore($jurusan->id)],
             'nama_jurusan' => ['required', 'string', 'max:255'],
             'deskripsi' => ['nullable', 'string'],
+            'kepala_jurusan_id' => ['nullable', 'exists:guru,id'],
         ]);
 
         DB::beginTransaction();
@@ -120,6 +124,7 @@ class JurusanController extends Controller
                 'kode_jurusan' => strtoupper($request->kode_jurusan),
                 'nama_jurusan' => $request->nama_jurusan,
                 'deskripsi' => $request->deskripsi,
+                'kepala_jurusan_id' => $request->filled('kepala_jurusan_id') ? $request->kepala_jurusan_id : null,
             ]);
 
             DB::commit();

@@ -127,6 +127,12 @@ class CetakRaporController extends Controller
      */
     public function detailHasilBelajar(Rapor $rapor)
     {
+        if (!in_array($rapor->status, ['approved', 'published'])) {
+            return response()->json([
+                'message' => 'Rapor belum disetujui kepala sekolah. Hanya rapor yang sudah disetujui yang dapat dilihat dan dicetak.',
+            ], 403);
+        }
+
         $rapor->load([
             'siswa.user',
             'siswa.kelas.jurusan',

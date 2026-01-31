@@ -29,13 +29,15 @@ class RaporApprovalController extends Controller
 
         // Filter by status
         if ($request->has('status') && $request->status !== '') {
-            // Map 'pending' to 'draft' if pending doesn't exist in enum
             $status = $request->status;
-            if ($status === 'pending') {
-                // Check if pending exists, otherwise use draft
-                $query->where(function($q) {
+            if ($status === 'setujui') {
+                $query->whereIn('status', ['approved', 'published']);
+            } elseif ($status === 'belum') {
+                $query->whereIn('status', ['draft', 'pending']);
+            } elseif ($status === 'pending') {
+                $query->where(function ($q) {
                     $q->where('status', 'pending')
-                      ->orWhere(function($q2) {
+                      ->orWhere(function ($q2) {
                           $q2->where('status', 'draft')->whereNull('approved_at');
                       });
                 });

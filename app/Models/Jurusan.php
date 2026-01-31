@@ -20,7 +20,16 @@ class Jurusan extends Model
         'kode_jurusan',
         'nama_jurusan',
         'deskripsi',
+        'kepala_jurusan_id',
     ];
+
+    /**
+     * Get the kepala jurusan (guru).
+     */
+    public function kepalaJurusan()
+    {
+        return $this->belongsTo(Guru::class, 'kepala_jurusan_id');
+    }
 
     /**
      * Get the kelas for this jurusan.

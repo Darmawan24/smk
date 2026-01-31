@@ -191,8 +191,8 @@
                     type="checkbox"
                     :value="rapor.id"
                     v-model="selectedRapor"
-                    :disabled="rapor.status !== 'pending'"
-                    class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    :disabled="rapor.status === 'approved' || rapor.status === 'published'"
+                    class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
                   />
                 </td>
                 <td class="text-center">{{ index + 1 }}</td>
@@ -229,7 +229,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                       </svg>
                     </button>
-                    <div v-if="rapor.status === 'pending'" class="relative">
+                    <div v-if="rapor.status === 'pending' || rapor.status === 'draft'" class="relative">
                       <button 
                         @click="showActionMenu = showActionMenu === rapor.id ? null : rapor.id"
                         class="text-gray-600 hover:text-gray-900"
@@ -348,14 +348,14 @@
           <div class="flex justify-between">
             <div>
               <button 
-                v-if="selectedRaporDetail?.status === 'pending'" 
+                v-if="selectedRaporDetail?.status === 'pending' || selectedRaporDetail?.status === 'draft'" 
                 @click="approveRapor(selectedRaporDetail)" 
                 class="btn btn-success mr-3"
               >
                 Setujui
               </button>
               <button 
-                v-if="selectedRaporDetail?.status === 'pending'" 
+                v-if="selectedRaporDetail?.status === 'pending' || selectedRaporDetail?.status === 'draft'" 
                 @click="rejectRapor(selectedRaporDetail)" 
                 class="btn btn-danger"
               >
@@ -444,14 +444,13 @@ const filters = reactive({
 // Options
 const statusOptions = [
   { value: '', label: 'Semua Status' },
-  { value: 'pending', label: 'Menunggu Persetujuan' },
-  { value: 'approved', label: 'Disetujui' },
-  { value: 'draft', label: 'Draft' }
+  { value: 'belum', label: 'Belum' },
+  { value: 'setujui', label: 'Setujui' }
 ]
 
 // Computed
 const allSelected = computed(() => {
-  const pendingRapor = raporData.value.filter(r => r.status === 'pending')
+  const pendingRapor = raporData.value.filter(r => r.status === 'pending' || r.status === 'draft')
   return pendingRapor.length > 0 && selectedRapor.value.length === pendingRapor.length
 })
 
@@ -513,7 +512,7 @@ const fetchRapor = async () => {
 }
 
 const toggleSelectAll = () => {
-  const pendingRapor = raporData.value.filter(r => r.status === 'pending')
+  const pendingRapor = raporData.value.filter(r => r.status === 'pending' || r.status === 'draft')
   if (allSelected.value) {
     selectedRapor.value = []
   } else {
@@ -599,23 +598,15 @@ const bulkApprove = () => {
 }
 
 const getStatusBadge = (status) => {
-  const badges = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
-    draft: 'bg-gray-100 text-gray-800'
-  }
-  return badges[status] || 'bg-gray-100 text-gray-800'
+  if (status === 'approved' || status === 'published') return 'bg-green-100 text-green-800'
+  if (status === 'pending' || status === 'draft') return 'bg-yellow-100 text-yellow-800'
+  return 'bg-gray-100 text-gray-800'
 }
 
 const getStatusText = (status) => {
-  const texts = {
-    pending: 'Menunggu',
-    approved: 'Disetujui',
-    rejected: 'Ditolak',
-    draft: 'Draft'
-  }
-  return texts[status] || status
+  if (status === 'approved' || status === 'published') return 'Setujui'
+  if (status === 'pending' || status === 'draft') return 'Belum'
+  return status
 }
 
 const getPredicate = (nilai) => {

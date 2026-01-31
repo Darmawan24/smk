@@ -13,8 +13,17 @@ export const menuConfig = {
         { label: 'Kelola Mapel', to: '/admin/mata-pelajaran', icon: 'book' },
         { label: 'Kelola Ekskul', to: '/admin/ekstrakurikuler', icon: 'star' },
         { label: 'Kelola PKL', to: '/admin/pkl', icon: 'briefcase' },
-        { label: 'Tahun Ajaran', to: '/admin/tahun-ajaran', icon: 'calendar' },
-        { label: 'Kelola P5', to: '/admin/p5', icon: 'lightbulb' },
+        { label: 'Tahun Ajaran', to: '/admin/tahun-ajaran', icon: 'calendar' }
+      ]
+    },
+    {
+      type: 'dropdown',
+      title: 'Kelola P5',
+      icon: 'lightbulb',
+      routes: ['/admin/p5', '/admin/p5/kelompok'],
+      items: [
+        { label: 'Data P5', to: '/admin/p5', icon: 'document-duplicate' },
+        { label: 'Kelompok P5', to: '/admin/p5/kelompok', icon: 'user-group' }
       ]
     },
     {
