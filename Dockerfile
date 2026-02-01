@@ -40,7 +40,6 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     gd \
     mbstring \
     opcache \
-    openssl \
     pcntl \
     zip \
     xml \
