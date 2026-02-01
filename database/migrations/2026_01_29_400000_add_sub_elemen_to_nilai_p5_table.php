@@ -12,6 +12,11 @@ return new class extends Migration
             $table->string('sub_elemen', 500)->nullable()->after('dimensi_id');
         });
 
+        // Add index on dimensi_id first so FK still has an index after we drop the unique (MySQL 1553)
+        Schema::table('nilai_p5', function (Blueprint $table) {
+            $table->index('dimensi_id');
+        });
+
         Schema::table('nilai_p5', function (Blueprint $table) {
             $table->dropUnique(['siswa_id', 'p5_id', 'dimensi_id']);
         });
@@ -37,6 +42,10 @@ return new class extends Migration
 
         Schema::table('nilai_p5', function (Blueprint $table) {
             $table->unique(['siswa_id', 'p5_id', 'dimensi_id']);
+        });
+
+        Schema::table('nilai_p5', function (Blueprint $table) {
+            $table->dropIndex(['dimensi_id']);
         });
 
         Schema::table('nilai_p5', function (Blueprint $table) {
