@@ -22,6 +22,7 @@ RUN apk add --no-cache \
     oniguruma-dev \
     icu-dev \
     curl-dev \
+    libxml2-dev \
     nodejs \
     npm \
     git \
