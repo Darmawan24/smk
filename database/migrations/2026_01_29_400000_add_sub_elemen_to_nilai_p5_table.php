@@ -15,10 +15,17 @@ return new class extends Migration
             });
         }
 
-        // MySQL 1553: unique is used by FK on dimensi_id. Drop FK first, then drop unique, then re-add FK.
-        Schema::table('nilai_p5', function (Blueprint $table) {
-            $table->dropForeign(['dimensi_id']);
-        });
+        // MySQL 1553: unique is used by FK on dimensi_id. Drop FK first (look up actual constraint name), then drop unique, then re-add FK.
+        $fkName = DB::selectOne("
+            SELECT CONSTRAINT_NAME AS name
+            FROM information_schema.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'nilai_p5' AND COLUMN_NAME = 'dimensi_id' AND REFERENCED_TABLE_NAME IS NOT NULL
+        ");
+        if ($fkName && $fkName->name) {
+            Schema::table('nilai_p5', function (Blueprint $table) use ($fkName) {
+                $table->dropForeign($fkName->name);
+            });
+        }
 
         $oldUniqueExists = collect(DB::select("SHOW INDEX FROM nilai_p5 WHERE Key_name = 'nilai_p5_siswa_id_p5_id_dimensi_id_unique'"))->isNotEmpty();
         if ($oldUniqueExists) {
@@ -45,9 +52,16 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('nilai_p5', function (Blueprint $table) {
-            $table->dropForeign(['dimensi_id']);
-        });
+        $fkName = DB::selectOne("
+            SELECT CONSTRAINT_NAME AS name
+            FROM information_schema.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'nilai_p5' AND COLUMN_NAME = 'dimensi_id' AND REFERENCED_TABLE_NAME IS NOT NULL
+        ");
+        if ($fkName && $fkName->name) {
+            Schema::table('nilai_p5', function (Blueprint $table) use ($fkName) {
+                $table->dropForeign($fkName->name);
+            });
+        }
 
         Schema::table('nilai_p5', function (Blueprint $table) {
             $table->dropUnique(['siswa_id', 'p5_id', 'sub_elemen']);
