@@ -64,13 +64,14 @@ return new class extends Migration
 
             DB::statement("PRAGMA foreign_keys=ON");
         } else {
-            // For MySQL/MariaDB
+            // For MySQL/MariaDB: add new unique first (so FK still has an index), then drop old unique
             Schema::table('nilai', function (Blueprint $table) {
-                // Drop old unique constraint
-                $table->dropUnique(['siswa_id', 'mata_pelajaran_id', 'tahun_ajaran_id']);
-                
-                // Add new unique constraint with capaian_pembelajaran_id and semester
+                // Add new unique constraint first (covers leftmost columns for FK)
                 $table->unique(['siswa_id', 'mata_pelajaran_id', 'tahun_ajaran_id', 'capaian_pembelajaran_id', 'semester'], 'nilai_unique');
+            });
+            Schema::table('nilai', function (Blueprint $table) {
+                // Now drop old unique (MySQL allows it because new index exists)
+                $table->dropUnique(['siswa_id', 'mata_pelajaran_id', 'tahun_ajaran_id']);
             });
         }
     }

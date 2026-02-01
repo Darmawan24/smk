@@ -114,13 +114,37 @@ Aplikasi bisa dijalankan di server menggunakan Docker (PHP-FPM, Nginx, MySQL).
 # Lihat log
 docker compose logs -f
 
-# Masuk ke container app
+# Masuk ke container app (pakai sh, image Alpine tidak punya bash)
 docker compose exec app sh
 
 # Artisan di container
 docker compose exec app php artisan route:list
 docker compose exec app php artisan migrate:status
 ```
+
+### Troubleshooting: Error 500 (cache path / session)
+
+Jika muncul **500 Internal Server Error** dan di `storage/logs/laravel.log` ada *"Please provide a valid cache path"* atau error session/database, jalankan di server (di dalam folder proyek):
+
+```bash
+# Buat direktori storage dan permission
+sudo docker compose exec app mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache
+sudo docker compose exec app chown -R www-data:www-data storage bootstrap/cache
+sudo docker compose exec app chmod -R 775 storage bootstrap/cache
+
+# Pastikan migrasi (termasuk tabel sessions) sudah jalan
+sudo docker compose exec app php artisan migrate --force
+
+# Bersihkan cache config/view
+sudo docker compose exec app php artisan config:clear
+sudo docker compose exec app php artisan view:clear
+sudo docker compose exec app php artisan cache:clear
+
+# Restart app
+sudo docker compose restart app
+```
+
+Lalu coba akses lagi.
 
 ## 🔐 Demo Login Credentials
 
