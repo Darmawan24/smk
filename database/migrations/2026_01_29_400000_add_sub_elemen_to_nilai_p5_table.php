@@ -15,13 +15,10 @@ return new class extends Migration
             });
         }
 
-        // Add index on dimensi_id first so FK still has an index after we drop the unique (MySQL 1553)
-        $indexExists = collect(DB::select("SHOW INDEX FROM nilai_p5 WHERE Key_name = 'nilai_p5_dimensi_id_index'"))->isNotEmpty();
-        if (!$indexExists) {
-            Schema::table('nilai_p5', function (Blueprint $table) {
-                $table->index('dimensi_id');
-            });
-        }
+        // MySQL 1553: unique is used by FK on dimensi_id. Drop FK first, then drop unique, then re-add FK.
+        Schema::table('nilai_p5', function (Blueprint $table) {
+            $table->dropForeign(['dimensi_id']);
+        });
 
         $oldUniqueExists = collect(DB::select("SHOW INDEX FROM nilai_p5 WHERE Key_name = 'nilai_p5_siswa_id_p5_id_dimensi_id_unique'"))->isNotEmpty();
         if ($oldUniqueExists) {
@@ -40,10 +37,18 @@ return new class extends Migration
                 $table->unique(['siswa_id', 'p5_id', 'sub_elemen']);
             });
         }
+
+        Schema::table('nilai_p5', function (Blueprint $table) {
+            $table->foreign('dimensi_id')->references('id')->on('dimensi_p5')->onDelete('cascade');
+        });
     }
 
     public function down(): void
     {
+        Schema::table('nilai_p5', function (Blueprint $table) {
+            $table->dropForeign(['dimensi_id']);
+        });
+
         Schema::table('nilai_p5', function (Blueprint $table) {
             $table->dropUnique(['siswa_id', 'p5_id', 'sub_elemen']);
         });
@@ -57,7 +62,7 @@ return new class extends Migration
         });
 
         Schema::table('nilai_p5', function (Blueprint $table) {
-            $table->dropIndex(['dimensi_id']);
+            $table->foreign('dimensi_id')->references('id')->on('dimensi_p5')->onDelete('cascade');
         });
 
         Schema::table('nilai_p5', function (Blueprint $table) {
