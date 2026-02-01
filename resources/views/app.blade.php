@@ -34,8 +34,13 @@
         .table th{padding:.75rem 1.5rem;text-align:left;font-size:.75rem;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:.05em}
         .table td{padding:1rem 1.5rem;font-size:.875rem;color:#111827;white-space:nowrap}
         .table tbody tr:nth-child(even){background-color:#f9fafb}.table tbody tr:hover{background-color:#f3f4f6}
+        /* Form elements (mirip @tailwindcss/forms) saat pakai fallback */
+        input[type=text],input[type=email],input[type=password],input[type=number],input[type=search],input[type=url],select,textarea{display:block;width:100%;border-radius:.375rem;border:1px solid #d1d5db;background:#fff;padding:.5rem .75rem;font-size:.875rem;line-height:1.25rem}
+        input:focus,select:focus,textarea:focus{outline:2px solid transparent;outline-offset:2px;border-color:#3b82f6;box-shadow:0 0 0 1px #3b82f6}
+        select{background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");background-position:right .5rem center;background-repeat:no-repeat;background-size:1.5em 1.5em;padding-right:2.5rem}
+        textarea{resize:vertical;min-height:80px}
         </style>
-        <script src="{{ asset('js/tailwind.js') }}" defer></script>
+        <script src="https://cdn.tailwindcss.com?plugins=forms" defer></script>
     </head>
     <body class="font-sans antialiased">
         <div id="app"></div>
