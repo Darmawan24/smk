@@ -48,8 +48,9 @@ return new class extends Migration
             DB::statement('ALTER TABLE guru_new RENAME TO guru;');
             DB::statement('PRAGMA foreign_keys=on;');
         } else {
+            // Only make nullable; unique may already exist (e.g. from create_guru or rename_nip_to_nuptk)
             Schema::table('guru', function (Blueprint $table) {
-                $table->string('nuptk')->nullable()->unique()->change();
+                $table->string('nuptk')->nullable()->change();
             });
         }
     }
@@ -87,7 +88,7 @@ return new class extends Migration
             DB::statement('PRAGMA foreign_keys=on;');
         } else {
             Schema::table('guru', function (Blueprint $table) {
-                $table->string('nuptk')->nullable(false)->unique()->change();
+                $table->string('nuptk')->nullable(false)->change();
             });
         }
     }
