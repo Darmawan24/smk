@@ -46,14 +46,25 @@ class P5Controller extends Controller
 
         // Filter peserta hanya siswa di kelas yang diajar guru ini
         if ($guru) {
-            $kelasIds = $guru->kelas_ids_yang_diajar;
-            $p5->getCollection()->transform(function ($item) use ($kelasIds) {
-                if ($item->relationLoaded('peserta')) {
-                    $filtered = $item->peserta->filter(fn ($s) => in_array($s->kelas_id, $kelasIds->toArray()));
-                    $item->setRelation('peserta', $filtered->values());
+            try {
+                $kelasIds = $guru->kelas_ids_yang_diajar ?? collect();
+                if (!$kelasIds instanceof \Illuminate\Support\Collection) {
+                    $kelasIds = collect($kelasIds);
                 }
-                return $item;
-            });
+                $kelasIdsArray = $kelasIds->toArray();
+                if (!empty($kelasIdsArray)) {
+                    $p5->getCollection()->transform(function ($item) use ($kelasIdsArray) {
+                        if ($item->relationLoaded('peserta')) {
+                            $filtered = $item->peserta->filter(fn ($s) => in_array($s->kelas_id, $kelasIdsArray));
+                            $item->setRelation('peserta', $filtered->values());
+                        }
+                        return $item;
+                    });
+                }
+            } catch (\Throwable $e) {
+                // Fallback: jangan filter jika error (log di production)
+                report($e);
+            }
         }
 
         return response()->json($p5);
@@ -278,9 +289,19 @@ class P5Controller extends Controller
         $user = Auth::user();
         $guru = $user->guru;
         if ($guru && $p5->relationLoaded('peserta')) {
-            $kelasIds = $guru->kelas_ids_yang_diajar;
-            $filtered = $p5->peserta->filter(fn ($s) => in_array($s->kelas_id, $kelasIds->toArray()));
-            $p5->setRelation('peserta', $filtered->values());
+            try {
+                $kelasIds = $guru->kelas_ids_yang_diajar ?? collect();
+                if (!$kelasIds instanceof \Illuminate\Support\Collection) {
+                    $kelasIds = collect($kelasIds);
+                }
+                $kelasIdsArray = $kelasIds->toArray();
+                if (!empty($kelasIdsArray)) {
+                    $filtered = $p5->peserta->filter(fn ($s) => in_array($s->kelas_id, $kelasIdsArray));
+                    $p5->setRelation('peserta', $filtered->values());
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return response()->json([
