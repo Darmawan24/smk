@@ -44,25 +44,26 @@ class P5Controller extends Controller
 
         $p5 = $query->orderBy('created_at', 'desc')->paginate($request->get('per_page', 15));
 
-        // Filter peserta hanya siswa di kelas yang diajar guru ini
+        // Filter peserta hanya siswa di kelompok yang difasilitasi guru ini
         if ($guru) {
             try {
-                $kelasIds = $guru->kelas_ids_yang_diajar ?? collect();
-                if (!$kelasIds instanceof \Illuminate\Support\Collection) {
-                    $kelasIds = collect($kelasIds);
-                }
-                $kelasIdsArray = $kelasIds->toArray();
-                if (!empty($kelasIdsArray)) {
-                    $p5->getCollection()->transform(function ($item) use ($kelasIdsArray) {
-                        if ($item->relationLoaded('peserta')) {
-                            $filtered = $item->peserta->filter(fn ($s) => in_array($s->kelas_id, $kelasIdsArray));
-                            $item->setRelation('peserta', $filtered->values());
-                        }
+                $p5->getCollection()->transform(function ($item) use ($guru) {
+                    if (!$item->relationLoaded('peserta') || !$item->relationLoaded('kelompok')) {
                         return $item;
-                    });
-                }
+                    }
+                    $kelompokGuru = $item->kelompok->where('guru_id', $guru->id);
+                    $siswaIdsDiKelompok = $kelompokGuru->flatMap(function ($k) {
+                        return $k->relationLoaded('siswa') ? $k->siswa->pluck('id') : collect();
+                    })->unique()->values()->all();
+                    if (empty($siswaIdsDiKelompok)) {
+                        $item->setRelation('peserta', $item->peserta->take(0));
+                        return $item;
+                    }
+                    $filtered = $item->peserta->filter(fn ($s) => in_array((int) $s->id, $siswaIdsDiKelompok, true));
+                    $item->setRelation('peserta', $filtered->values());
+                    return $item;
+                });
             } catch (\Throwable $e) {
-                // Fallback: jangan filter jika error (log di production)
                 report($e);
             }
         }
@@ -285,19 +286,19 @@ class P5Controller extends Controller
             ->pluck('catatan_proses', 'siswa_id')
             ->toArray();
 
-        // Filter peserta hanya siswa di kelas yang diajar guru ini
+        // Filter peserta hanya siswa di kelompok yang difasilitasi guru ini
         $user = Auth::user();
         $guru = $user->guru;
         if ($guru && $p5->relationLoaded('peserta')) {
             try {
-                $kelasIds = $guru->kelas_ids_yang_diajar ?? collect();
-                if (!$kelasIds instanceof \Illuminate\Support\Collection) {
-                    $kelasIds = collect($kelasIds);
-                }
-                $kelasIdsArray = $kelasIds->toArray();
-                if (!empty($kelasIdsArray)) {
-                    $filtered = $p5->peserta->filter(fn ($s) => in_array($s->kelas_id, $kelasIdsArray));
+                $p5->load(['kelompok.siswa']);
+                $kelompokGuru = $p5->kelompok->where('guru_id', $guru->id);
+                $siswaIdsDiKelompok = $kelompokGuru->flatMap(fn ($k) => $k->siswa->pluck('id'))->unique()->values()->all();
+                if (!empty($siswaIdsDiKelompok)) {
+                    $filtered = $p5->peserta->filter(fn ($s) => in_array((int) $s->id, $siswaIdsDiKelompok, true));
                     $p5->setRelation('peserta', $filtered->values());
+                } else {
+                    $p5->setRelation('peserta', $p5->peserta->take(0));
                 }
             } catch (\Throwable $e) {
                 report($e);
